@@ -1,0 +1,96 @@
+---
+- name: Discover All Portainer Stacks and Services
+  hosts: all
+  become: yes
+  vars:
+    docker_root_dir: "/media/Steam Dock/docker_data"
+    server_user: cloudcassette
+    infrastructure_repo_path: "/home/cloudcassette/orlandopunx-infrastructure"
+    home_directory: "/home/cloudcassette"
+  
+  tasks:
+    - name: Get all running containers  
+      community.docker.docker_host_info:
+      register: docker_info
+
+    - name: Check current stack status
+      shell: docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Labels}}" | grep -E "(compose|stack)" || echo "No compose/stack containers found"
+      register: compose_containers
+      changed_when: false
+
+    - name: List all Docker volumes
+      command: docker volume ls
+      register: all_volumes
+      changed_when: false
+
+    - name: Create stack discovery report
+      copy:
+        content: |
+          # Portainer Stack Discovery Report - {{ ansible_date_time.iso8601 }}
+          
+          ## ❌ MISSING: ghost-blog-ogrc Stack
+          
+          **Status**: The ghost-blog-ogrc stack is NOT currently running in Portainer.
+          
+          **Evidence**:
+          - No containers with "ogrc", "orlando", "girl", or "rock" in names
+          - No volumes with OGRC-related names
+          - No compose project labeled as ghost-blog-ogrc
+          
+          **Available for Restoration**:
+          - ✅ Import Data: {{ home_directory }}/ghost_downloads/ogrc_blog_import.json
+          - ✅ Recovery Package: {{ home_directory }}/ghost_recovery_package.tar.gz  
+          - ✅ Ansible Playbook: Ready for deployment
+          
+          ## ✅ CURRENT: Active Stacks in Portainer
+          
+          ### cloudcassette (Docker Compose Project)
+          **Containers**:
+          - cloudcassette-blog: ghost:latest (port 2368)
+          - cloudcassette-mysql: mysql:5.7 (internal)
+          
+          **Network**: cloudcassette_default
+          **Config**: /home/cloudcassette/final_modern_ghost.yaml
+          
+          ### Individual Containers
+          - **portainer**: portainer/portainer-ce:latest (ports 8000, 9443)
+          - **Multiple cloudflared**: 5 tunnel instances running
+          
+          ## 🔄 Required Actions for Complete Coverage
+          
+          ### 1. Restore Missing OGRC Stack
+          ```bash
+          cd {{ infrastructure_repo_path }}/ansible
+          ansible-playbook playbooks/restore-orlandogirlsrockcamp.yml --ask-vault-pass
+          ```
+          
+          This will create:
+          - orlandogirlsrockcamp-blog container (Ghost on port 2369)
+          - orlandogirlsrockcamp-mysql container 
+          - Proper volumes in Steam Dock location
+          - nginx configuration for domain
+          
+          ### 2. Import Ghost Content
+          ```bash
+          # After containers are running
+          docker cp {{ home_directory }}/ghost_downloads/ogrc_blog_import.json orlandogirlsrockcamp-blog:/tmp/
+          # Then import via Ghost admin panel
+          ```
+          
+          ### 3. Verify in Portainer
+          - Access: https://{{ ansible_default_ipv4.address }}:9443
+          - Should see new ghost-blog-ogrc stack
+          - Monitor container health and logs
+          
+          ## Current Docker Configuration
+          - **Root Directory**: {{ docker_root_dir }}
+          - **Total Containers**: {{ docker_info.containers | length }}
+          - **Running**: {{ docker_info.containers | selectattr('state', 'equalto', 'running') | list | length }}
+          - **Networks**: {{ docker_info.networks | length }}
+          - **Volumes**: {{ docker_info.volumes | length }}
+          
+          **⚠️ Critical**: OGRC stack is completely missing and needs full restoration.
+        dest: "{{ infrastructure_repo_path }}/docs/PORTAINER_STACK_DISCOVERY.md"
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: '0644'
