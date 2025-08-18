@@ -1,0 +1,37 @@
+---
+- name: Install SSL/TLS packages
+  apt:
+    name:
+      - openssl
+      - ca-certificates
+    state: present
+
+- name: Check if Let's Encrypt certificates exist
+  stat:
+    path: "/etc/letsencrypt/live"
+  register: letsencrypt_dir
+
+- name: Install certbot if certificates directory exists
+  apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+  when: letsencrypt_dir.stat.exists
+
+- name: Ensure SSL certificate files exist (fallback to snakeoil)
+  file:
+    path: "{{ item }}"
+    state: file
+  loop:
+    - "{{ ssl_certificate_path }}"
+    - "{{ ssl_private_key_path }}"
+  ignore_errors: yes
+
+- name: Create SSL certificates directory in infrastructure repo
+  file:
+    path: "{{ infrastructure_repo_path }}/configs/ssl"
+    state: directory
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0755'

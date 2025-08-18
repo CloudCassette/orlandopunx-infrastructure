@@ -1,0 +1,5 @@
+---
+- name: restart gancio
+  systemd:
+    name: gancio
+    state: restarted

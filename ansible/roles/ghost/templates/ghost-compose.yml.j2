@@ -1,0 +1,61 @@
+---
+# Ghost Blog Infrastructure - Docker Compose
+# Managed by Ansible - Do not edit manually
+
+version: '3.8'
+
+services:
+{% for instance_name, config in ghost_instances.items() %}
+  # {{ instance_name | title }} Blog
+  {{ config.container_name }}:
+    image: {{ config.image }}
+    container_name: {{ config.container_name }}
+    restart: unless-stopped
+    ports:
+      - "{{ config.port }}:2368"
+    depends_on:
+      - {{ instance_name }}-mysql
+    environment:
+      url: {{ config.url }}
+      database__client: mysql
+      database__connection__host: {{ instance_name }}-mysql
+      database__connection__user: {{ config.mysql_user }}
+      database__connection__password: {{ config.mysql_password }}
+      database__connection__database: {{ config.mysql_database }}
+      mail__transport: SMTP
+      mail__options__service: Mailgun
+      mail__options__auth__user: "{{ vault_mailgun_user | default('') }}"
+      mail__options__auth__pass: "{{ vault_mailgun_password | default('') }}"
+    volumes:
+      - {{ config.volume_name }}:/var/lib/ghost/content
+    networks:
+      - ghost_network
+      
+  # MySQL for {{ instance_name }}
+  {{ instance_name }}-mysql:
+    image: {{ ghost_mysql_image }}
+    container_name: {{ instance_name }}-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: {{ ghost_mysql_root_password }}
+      MYSQL_DATABASE: {{ config.mysql_database }}
+      MYSQL_USER: {{ config.mysql_user }}
+      MYSQL_PASSWORD: {{ config.mysql_password }}
+    volumes:
+      - {{ config.mysql_volume_name }}:/var/lib/mysql
+    networks:
+      - ghost_network
+
+{% endfor %}
+
+volumes:
+{% for instance_name, config in ghost_instances.items() %}
+  {{ config.volume_name }}:
+    external: true
+  {{ config.mysql_volume_name }}:
+    external: true
+{% endfor %}
+
+networks:
+  ghost_network:
+    driver: bridge

@@ -1,0 +1,30 @@
+---
+- name: Test Ansible Connection and Basic Setup
+  hosts: all
+  gather_facts: yes
+  
+  tasks:
+    - name: Test connection to server
+      ping:
+      
+    - name: Display system information
+      debug:
+        msg: |
+          Hostname: {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Architecture: {{ ansible_architecture }}
+          
+    - name: Check if services are running
+      command: systemctl is-active {{ item }}
+      register: service_status
+      loop:
+        - nginx
+        - docker
+        - postgresql
+        - gancio
+      ignore_errors: yes
+      
+    - name: Display service status
+      debug:
+        msg: "{{ item.item }}: {{ item.stdout }}"
+      loop: "{{ service_status.results }}"

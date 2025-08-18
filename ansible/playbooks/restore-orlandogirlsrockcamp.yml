@@ -1,0 +1,88 @@
+---
+- name: Restore Orlando Girls Rock Camp Ghost Blog
+  hosts: ghostservers
+  become: yes
+  vars_files:
+    - ../group_vars/vault.yml
+  
+  tasks:
+    - name: Ensure nginx configuration includes orlandogirlsrockcamp
+      template:
+        src: domain_config.j2
+        dest: "{{ nginx_sites_available_path }}/orlandogirlsrockcamp.com"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        item:
+          key: orlandogirlsrockcamp
+          value: "{{ domains.orlandogirlsrockcamp }}"
+      notify: restart nginx
+
+    - name: Enable orlandogirlsrockcamp nginx site
+      file:
+        src: "{{ nginx_sites_available_path }}/orlandogirlsrockcamp.com"
+        dest: "{{ nginx_sites_enabled_path }}/orlandogirlsrockcamp.com"
+        state: link
+      notify: restart nginx
+
+    - name: Create orlandogirlsrockcamp Ghost volumes
+      community.docker.docker_volume:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - "{{ ghost_instances.orlandogirlsrockcamp.volume_name }}"
+        - "{{ ghost_instances.orlandogirlsrockcamp.mysql_volume_name }}"
+
+    - name: Create orlandogirlsrockcamp MySQL container
+      community.docker.docker_container:
+        name: orlandogirlsrockcamp-mysql
+        image: "{{ ghost_mysql_image }}"
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ ghost_network_name }}"
+        env:
+          MYSQL_ROOT_PASSWORD: "{{ ghost_mysql_root_password }}"
+          MYSQL_DATABASE: "{{ ghost_instances.orlandogirlsrockcamp.mysql_database }}"
+          MYSQL_USER: "{{ ghost_instances.orlandogirlsrockcamp.mysql_user }}"
+          MYSQL_PASSWORD: "{{ ghost_instances.orlandogirlsrockcamp.mysql_password }}"
+        volumes:
+          - "{{ ghost_instances.orlandogirlsrockcamp.mysql_volume_name }}:/var/lib/mysql"
+        state: started
+
+    - name: Create orlandogirlsrockcamp Ghost container
+      community.docker.docker_container:
+        name: "{{ ghost_instances.orlandogirlsrockcamp.container_name }}"
+        image: "{{ ghost_instances.orlandogirlsrockcamp.image }}"
+        restart_policy: unless-stopped
+        ports:
+          - "{{ ghost_instances.orlandogirlsrockcamp.port }}:2368"
+        networks:
+          - name: "{{ ghost_network_name }}"
+        env:
+          url: "{{ ghost_instances.orlandogirlsrockcamp.url }}"
+          database__client: mysql
+          database__connection__host: orlandogirlsrockcamp-mysql
+          database__connection__user: "{{ ghost_instances.orlandogirlsrockcamp.mysql_user }}"
+          database__connection__password: "{{ ghost_instances.orlandogirlsrockcamp.mysql_password }}"
+          database__connection__database: "{{ ghost_instances.orlandogirlsrockcamp.mysql_database }}"
+        volumes:
+          - "{{ ghost_instances.orlandogirlsrockcamp.volume_name }}:/var/lib/ghost/content"
+        state: started
+
+    - name: Wait for orlandogirlsrockcamp Ghost to be ready
+      uri:
+        url: "http://localhost:{{ ghost_instances.orlandogirlsrockcamp.port }}"
+        method: GET
+        status_code: 200
+      register: ghost_health_check
+      until: ghost_health_check.status == 200
+      retries: 30
+      delay: 10
+      ignore_errors: yes
+
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

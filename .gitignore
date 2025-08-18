@@ -51,3 +51,16 @@ temp/
 # Runtime files
 *.pid
 scripts/event-sync/venv/
+
+# Ansible
+ansible/group_vars/vault.yml
+*.retry
+*.log
+.ansible/
+__pycache__/
+*.pyc
+.vault_pass
+
+# Sensitive configuration backups
+*.backup-*
+*.bak

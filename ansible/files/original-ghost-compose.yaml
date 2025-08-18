@@ -1,0 +1,35 @@
+services:
+  # Main Blog - cloudcassette.blog (Latest stable Ghost)
+  cloudcassette-ghost:
+    image: ghost:latest
+    container_name: cloudcassette-blog
+    restart: unless-stopped
+    ports:
+      - "2368:2368"
+    depends_on:
+      - cloudcassette-db
+    environment:
+      url: http://192.168.86.4:2368
+      database__client: mysql
+      database__connection__host: cloudcassette-db
+      database__connection__user: ghost
+      database__connection__password: ghostpassword
+      database__connection__database: ghost
+    volumes:
+      - ghost_content:/var/lib/ghost/content
+      
+  cloudcassette-db:
+    image: mysql:5.7
+    container_name: cloudcassette-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ghostpassword
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ghost  
+      MYSQL_PASSWORD: ghostpassword
+    volumes:
+      - ghost_mysql:/var/lib/mysql
+
+volumes:
+  ghost_mysql:
+  ghost_content:

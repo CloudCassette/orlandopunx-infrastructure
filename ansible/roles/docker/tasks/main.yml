@@ -1,0 +1,55 @@
+---
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/debian/gpg
+    state: present
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+    state: present
+    update_cache: yes
+
+- name: Install Docker and Docker Compose
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+
+- name: Start and enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add users to docker group
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop: "{{ docker_users }}"
+
+- name: Create docker-compose directory
+  file:
+    path: "{{ home_directory }}/docker-compose"
+    state: directory
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0755'
+
+- name: Copy ghost docker-compose files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ home_directory }}/docker-compose/"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0644'
+  loop:
+    - "{{ home_directory }}/final_modern_ghost.yaml"
+    - "{{ home_directory }}/fresh_ghost_blogs.yaml"
+    - "{{ home_directory }}/modern_ghost_blogs.yaml"
+  ignore_errors: yes

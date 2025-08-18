@@ -1,0 +1,42 @@
+---
+- name: Configure Orlando Punx Infrastructure
+  hosts: all
+  become: yes
+  vars_files:
+    - ../group_vars/vault.yml
+  roles:
+    - common
+    - docker
+    - postgresql
+    - nginx
+    - ssl
+    - ghost
+    - gancio
+    
+  tasks:
+    - name: Ensure server is properly configured
+      debug:
+        msg: "Infrastructure deployment complete for {{ inventory_hostname }}"
+        
+- name: Configure Web Services
+  hosts: webservers
+  become: yes
+  vars_files:
+    - ../group_vars/vault.yml
+  tasks:
+    - name: Restart nginx after configuration changes
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+      when: nginx_config_changed | default(false)
+      
+- name: Configure Ghost Services  
+  hosts: ghostservers
+  become: yes
+  vars_files:
+    - ../group_vars/vault.yml
+  tasks:
+    - name: Ensure all Ghost containers are running
+      debug:
+        msg: "Ghost services configured for {{ inventory_hostname }}"

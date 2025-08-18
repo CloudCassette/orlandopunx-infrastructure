@@ -1,0 +1,24 @@
+---
+- name: Check if Gancio service exists
+  systemd:
+    name: gancio
+  register: gancio_service_status
+  ignore_errors: yes
+
+- name: Ensure Gancio service is running
+  systemd:
+    name: gancio
+    state: started
+    enabled: yes
+  when: gancio_service_status.status is defined
+
+- name: Copy Gancio configuration files
+  copy:
+    src: "{{ infrastructure_repo_path }}/configs/gancio/"
+    dest: "/etc/gancio/"
+    owner: gancio
+    group: gancio
+    mode: '0644'
+    backup: yes
+  notify: restart gancio
+  when: gancio_service_status.status is defined

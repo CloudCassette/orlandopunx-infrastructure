@@ -1,0 +1,44 @@
+---
+- name: Create Docker volumes for Ghost instances
+  community.docker.docker_volume:
+    name: "{{ item.value.volume_name }}"
+    state: present
+  loop: "{{ ghost_instances | dict2items }}"
+
+- name: Create Docker volumes for MySQL instances
+  community.docker.docker_volume:
+    name: "{{ item.value.mysql_volume_name }}"
+    state: present
+  loop: "{{ ghost_instances | dict2items }}"
+
+- name: Create Docker network for Ghost
+  community.docker.docker_network:
+    name: "{{ ghost_network_name }}"
+    driver: bridge
+
+- name: Create Ghost docker-compose file
+  template:
+    src: ghost-compose.yml.j2
+    dest: "{{ home_directory }}/docker-compose/ghost-services.yml"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0644'
+
+- name: Start Ghost services with docker-compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ home_directory }}/docker-compose"
+    files:
+      - ghost-services.yml
+    state: present
+
+- name: Wait for Ghost instances to be ready
+  uri:
+    url: "http://localhost:{{ item.value.port }}"
+    method: GET
+    status_code: 200
+  register: ghost_health_check
+  until: ghost_health_check.status == 200
+  retries: 30
+  delay: 10
+  loop: "{{ ghost_instances | dict2items }}"
+  ignore_errors: yes

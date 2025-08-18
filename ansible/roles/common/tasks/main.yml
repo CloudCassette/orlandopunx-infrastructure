@@ -1,0 +1,43 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install common packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - htop
+      - vim
+      - jq
+      - unzip
+      - software-properties-common
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Set timezone
+  timezone:
+    name: "{{ server_timezone }}"
+
+- name: Create server user
+  user:
+    name: "{{ server_user }}"
+    shell: /bin/bash
+    create_home: yes
+    groups: sudo,docker
+    append: yes
+  when: server_user != "root"
+
+- name: Ensure infrastructure directory exists
+  file:
+    path: "{{ infrastructure_repo_path }}"
+    state: directory
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0755'

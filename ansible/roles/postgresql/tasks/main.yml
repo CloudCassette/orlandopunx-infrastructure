@@ -1,0 +1,37 @@
+---
+- name: Install PostgreSQL and dependencies
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+
+- name: Start and enable PostgreSQL
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Check if PostgreSQL cluster 15-main exists
+  stat:
+    path: "/etc/postgresql/15/main/postgresql.conf"
+  register: postgres_config
+
+- name: Ensure PostgreSQL is configured for local connections
+  lineinfile:
+    path: /etc/postgresql/15/main/pg_hba.conf
+    regexp: '^local\s+all\s+all\s+'
+    line: 'local   all             all                                     trust'
+    backup: yes
+  notify: restart postgresql
+  when: postgres_config.stat.exists
+
+- name: Ensure PostgreSQL listens on localhost
+  lineinfile:
+    path: /etc/postgresql/15/main/postgresql.conf
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = 'localhost'"
+    backup: yes
+  notify: restart postgresql
+  when: postgres_config.stat.exists

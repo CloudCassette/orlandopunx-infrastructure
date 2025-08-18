@@ -1,0 +1,30 @@
+---
+# Ghost configuration
+ghost_instances:
+  cloudcassette:
+    container_name: cloudcassette-blog
+    image: "ghost:latest"
+    port: 2368
+    url: "http://192.168.86.4:2368"
+    mysql_database: ghost
+    mysql_user: ghost
+    mysql_password: "{{ vault_ghost_mysql_password }}"
+    volume_name: cloudcassette_ghost_content
+    mysql_volume_name: cloudcassette_ghost_mysql
+  orlandogirlsrockcamp:
+    container_name: orlandogirlsrockcamp-blog
+    image: "ghost:latest"  
+    port: 2369
+    url: "https://orlandogirlsrockcamp.com"
+    mysql_database: orlandogirlsrockcamp
+    mysql_user: ogrc_ghost
+    mysql_password: "{{ vault_ogrc_ghost_mysql_password }}"
+    volume_name: orlandogirlsrockcamp_ghost_content
+    mysql_volume_name: orlandogirlsrockcamp_ghost_mysql
+
+# MySQL configuration for Ghost
+ghost_mysql_root_password: "{{ vault_ghost_mysql_root_password }}"
+ghost_mysql_image: "mysql:5.7"
+
+# Docker network
+ghost_network_name: ghost_network
