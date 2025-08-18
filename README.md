@@ -1,192 +1,84 @@
-# 🎸 Orlando Punk Shows - Complete Infrastructure
+# Orlando Punx Infrastructure
 
-This repository contains all infrastructure, configurations, scripts, and documentation for [OrlandoPunx.com](https://orlandopunx.com) - Orlando's digital poster wall for underground punk shows.
+**Infrastructure as Code for Orlando Punx ecosystem** - Ghost blogs, Gancio events, and community services.
 
-## 🎯 Site Overview
+## 🏗️ **Architecture Overview**
 
-**URL**: https://orlandopunx.com  
-**Platform**: Gancio (federated event management platform)  
-**Purpose**: Digital poster wall for underground punk shows in Orlando, FL  
-**Primary Venues**: Will's Pub, Uncle Lou's, and other local venues  
-
-## 📁 Repository Structure
-
+### **Cloudflare Tunnel Architecture**
 ```
-├── gancio/              # Gancio platform customizations
-│   ├── themes/          # Custom CSS and styling
-│   ├── configs/         # Gancio configuration files
-│   └── plugins/         # Custom plugins and extensions
-├── seo/                 # SEO optimization files and strategies
-│   ├── implementations/ # Deployed SEO improvements
-│   ├── analytics/       # Google Analytics and tracking
-│   └── reports/         # SEO performance reports
-├── scripts/             # Automation and integration scripts
-│   ├── event-sync/      # Will's Pub event synchronization
-│   ├── backup/          # Backup and restoration scripts
-│   └── maintenance/     # System maintenance scripts
-├── docs/                # Documentation and guides
-│   ├── setup/           # Installation and setup guides
-│   ├── api/             # API documentation
-│   └── troubleshooting/ # Common issues and solutions
-├── configs/             # System configuration files
-│   ├── nginx/           # Web server configuration
-│   ├── systemd/         # Service configurations
-│   └── ssl/             # SSL certificate management
-├── backups/             # Backup policies and restore procedures
-└── monitoring/          # System monitoring and alerting
+Internet → Cloudflare Edge → Tunnel → nginx → Services
+   ↓            ↓            ↓        ↓        ↓  
+HTTPS      SSL/DDoS      Local    Proxy   Ghost/Gancio
 ```
 
-## 🚀 Quick Start
+### **Current Services**
+- **🎸 orlandopunx.com**: Gancio event system (port 13120)
+- **📝 cloudcassette.blog**: Ghost blog (port 2368) ✅
+- **🎸 orlandogirlsrockcamp.com**: Ghost blog (port 2369) 🔄 *Ready for restoration*
+- **🥪 tamtamthesandwichman.com**: Ghost blog (port 2370) 📋 *Planned*
+- **⚡ godless-america.com**: Ghost blog (port 2371) 📋 *Planned*
 
-### For SEO Improvements
+## 🛠️ **Infrastructure Stack**
+
+### **Container Management**
+- **Docker**: Custom root at `/media/Steam Dock/docker_data` (1.8TB)
+- **Portainer**: Web UI at https://localhost:9443
+- **Cloudflare tunnels**: 5 tunnel instances for secure access
+
+### **Services**
+- **nginx**: Reverse proxy (Cloudflare tunnel termination)
+- **PostgreSQL**: Database server (system service)
+- **Gancio**: Event management (system service)
+- **Ghost instances**: Multiple blog platforms (containerized)
+
+## 📁 **Repository Structure**
+
+```
+├── ansible/                 # Infrastructure as Code
+│   ├── inventory/          # Server definitions
+│   ├── group_vars/         # Configuration variables
+│   ├── roles/              # Service configurations
+│   └── playbooks/          # Deployment scripts
+├── configs/                # Legacy configurations
+├── docs/                   # Documentation
+├── scripts/                # Automation scripts
+└── backups/                # Infrastructure snapshots
+```
+
+## 🚀 **Quick Start**
+
+### **Test Current Infrastructure**
 ```bash
-cd seo/implementations/
-./deploy-seo-improvements.sh
+cd ansible/
+ansible-playbook playbooks/test-connection.yml
 ```
 
-### For Gancio Customizations
+### **Restore orlandogirlsrockcamp.com**
 ```bash
-cd gancio/themes/
-./deploy-custom-styling.sh
+cd ansible/
+ansible-vault encrypt group_vars/vault.yml  # First time only
+ansible-playbook playbooks/restore-orlandogirlsrockcamp.yml --ask-vault-pass
 ```
 
-### For Event Synchronization
+### **Deploy All Ghost Instances**
 ```bash
-cd scripts/event-sync/
-python willspub_to_gancio_sync.py
+cd ansible/
+ansible-playbook playbooks/deploy-all-ghost-instances.yml --ask-vault-pass
 ```
 
-## 🎵 Current Features
+## 🔗 **Related Repositories**
 
-### ✅ SEO Optimizations (Implemented)
-- XML sitemap at `/sitemap.xml`
-- Enhanced robots.txt with proper directives
-- Dynamic structured data generation
-- SEO-optimized CSS for better readability
-- Google Analytics integration ready
+- **[CloudCassette/homelab](https://github.com/CloudCassette/homelab)**: Terraform infrastructure provisioning
+- **This repo**: Ansible service configuration and deployment
 
-### ✅ Visual Customizations (Implemented)
-- Fixed image display (full flyers instead of cropped squares)
-- Custom CSS overrides for better visual presentation
-- Mobile-responsive improvements
+## 📚 **Documentation**
 
-### ✅ Event Integration (Implemented)
-- Will's Pub event synchronization
-- Automated event posting from external sources
-- Event flyer optimization and display
+- [PORT_ALLOCATION.md](docs/PORT_ALLOCATION.md) - Port strategy for multiple Ghost instances
+- [CLOUDFLARE_TUNNELS.md](docs/CLOUDFLARE_TUNNELS.md) - Tunnel architecture details  
+- [CURRENT_PORTAINER_STACKS.md](docs/CURRENT_PORTAINER_STACKS.md) - Stack analysis
+- [ANSIBLE_SETUP_COMPLETE.md](ANSIBLE_SETUP_COMPLETE.md) - Setup completion guide
 
-## 🛠️ System Information
+## ⚡ **Status: Ready for Ghost Restoration**
 
-**Server**: 192.168.86.4  
-**Port**: 13120 (internal), 443/80 (public via Cloudflare)  
-**OS**: Debian GNU/Linux  
-**Node.js**: v20.19.4  
-**Gancio Version**: 1.4.4  
-**Database**: SQLite (`/var/lib/gancio/gancio.sqlite`)  
-
-## 📊 SEO Performance
-
-### Current Status
-- ✅ Sitemap: https://orlandopunx.com/sitemap.xml
-- ✅ Robots.txt: https://orlandopunx.com/robots.txt
-- ✅ RSS Feed: https://orlandopunx.com/feed/rss
-- 🔄 Google Search Console: Setup needed
-- 🔄 Google Analytics: Setup needed
-
-### Target Keywords
-- Orlando punk shows
-- Orlando hardcore concerts
-- Will's Pub events
-- Orlando underground music
-- Orlando music calendar
-- DIY shows Orlando
-
-## 🔧 Maintenance
-
-### Daily Checks
-- [ ] Gancio service status
-- [ ] Event synchronization logs
-- [ ] SSL certificate validity
-
-### Weekly Tasks
-- [ ] SEO performance review
-- [ ] Backup verification
-- [ ] Event data cleanup
-
-### Monthly Tasks
-- [ ] Security updates
-- [ ] Performance optimization
-- [ ] Analytics reporting
-
-## 📈 Analytics & Monitoring
-
-### Key Metrics
-- Monthly active users
-- Event page views
-- RSS feed subscribers
-- Search engine rankings
-- Social media engagement
-
-### Monitoring Tools
-- Google Analytics (pending setup)
-- Google Search Console (pending setup)
-- System monitoring via systemd
-- Custom alerting scripts
-
-## 🤝 Contributing
-
-### Making Changes
-1. Create feature branch: `git checkout -b feature/description`
-2. Test changes in staging environment
-3. Update documentation
-4. Submit pull request
-
-### Deployment Process
-1. Test all changes locally
-2. Create backup of current state
-3. Deploy to production
-4. Verify functionality
-5. Monitor for issues
-
-## 🆘 Emergency Contacts
-
-### System Issues
-- Check service status: `sudo systemctl status gancio`
-- View logs: `sudo journalctl -u gancio -f`
-- Restart service: `sudo systemctl restart gancio`
-
-### Backup & Recovery
-- Database backup location: `/opt/backups/gancio/`
-- Configuration backup: `/home/cloudcassette/gancio-customizations/backup/`
-- Recovery procedures: `docs/troubleshooting/recovery.md`
-
-## 🏷️ Version History
-
-### v2.0 (Current - August 2025)
-- Comprehensive SEO implementation
-- Enhanced visual customizations
-- Complete infrastructure documentation
-- Automated event synchronization
-
-### v1.0 (July 2025)
-- Initial Gancio deployment
-- Basic customizations
-- Will's Pub integration
-- SSL certificate setup
-
-## 📧 Contact
-
-**Email**: godlessamericarecords@gmail.com  
-**Website**: https://orlandopunx.com  
-**System Admin**: CloudCassette
-
----
-
-*🎸 Supporting the Orlando punk scene since 2025! 🎸*
-
-**Show your support by attending local shows and sharing events!**
-<- Shows all content of event Test automated deployment Mon Aug 18 02:20:48 AM EDT 2025 -->
-🚀 Testing automated deployment - Mon Aug 18 02:25:11 AM EDT 2025
-<- Professional CI/CD for the Orlando punk Deployment test with new SSH key - Mon Aug 18 09:15:38 AM EDT 2025 -->
-<- Professional CI/CD for the Orlando punk Testing Discord notifications with secure deployment - Mon Aug 18 09:24:02 AM EDT 2025 -->
-<- Professional CI/CD for the Orlando punk Testing complete DuckDNS + port 2222 deployment - Mon Aug 18 09:54:23 AM EDT 2025 -->
+**Infrastructure as code complete and safely committed to git.** 
+**orlandogirlsrockcamp.com restoration can proceed!** 🎸✨
