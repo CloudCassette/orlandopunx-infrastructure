@@ -1,0 +1,52 @@
+---
+- name: Ensure Cloudflare tunnel containers are managed
+  community.docker.docker_container:
+    name: "{{ item.value.tunnel_name }}-tunnel"
+    image: "cloudflare/cloudflared:latest"
+    restart_policy: unless-stopped
+    command: 
+      - "tunnel"
+      - "--no-autoupdate"
+      - "run"
+      - "--token"
+      - "{{ lookup('vars', 'vault_cloudflare_tunnel_token_' + item.key) }}"
+    state: started
+  loop: "{{ ghost_instances | dict2items }}"
+  when: 
+    - item.value.tunnel_enabled | default(true)
+    - lookup('vars', 'vault_cloudflare_tunnel_token_' + item.key, default='') != ''
+  ignore_errors: yes  # Don't fail if tokens not set
+
+- name: Create tunnel documentation
+  copy:
+    content: |
+      # Cloudflare Tunnel Configuration
+      
+      ## Active Tunnels
+      {% for instance_name, config in ghost_instances.items() %}
+      - **{{ config.domain }}**: {{ config.tunnel_name }}-tunnel
+        - Container: {{ config.tunnel_name }}-tunnel
+        - Target: localhost:{{ config.port }}
+        - Service: {{ config.service }}
+      {% endfor %}
+      
+      ## Port Mapping (Internal Only)
+      {% for instance_name, config in ghost_instances.items() %}
+      - {{ config.port }}: {{ config.domain }} ({{ config.service }})
+      {% endfor %}
+      
+      ## Tunnel Management
+      - All tunnels configured in Cloudflare dashboard
+      - SSL/TLS termination handled by Cloudflare
+      - No external port exposure needed
+      - nginx handles internal routing only
+      
+      ## Adding New Domains
+      1. Add to ghost_instances in ghostservers.yml
+      2. Set tunnel token in vault.yml
+      3. Configure tunnel in Cloudflare dashboard
+      4. Run Ansible playbook to deploy
+    dest: "{{ infrastructure_repo_path }}/docs/CLOUDFLARE_TUNNELS.md"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0644'

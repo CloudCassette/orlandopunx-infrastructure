@@ -1,0 +1,97 @@
+---
+- name: Deploy All Ghost Blog Instances
+  hosts: ghostservers
+  become: yes
+  vars_files:
+    - ../group_vars/vault.yml
+  
+  tasks:
+    - name: Display deployment plan
+      debug:
+        msg: |
+          🚀 Deploying {{ ghost_instances | length }} Ghost instances:
+          {% for instance_name, config in ghost_instances.items() %}
+          - {{ config.domain }}: {{ config.container_name }} (port {{ config.port }})
+          {% endfor %}
+          
+          🔗 All instances will be accessible via Cloudflare tunnels
+          🛡️ SSL/TLS handled by Cloudflare (no local SSL needed)
+
+    - name: Create nginx configurations for all domains
+      template:
+        src: domain_config.j2
+        dest: "{{ nginx_sites_available_path }}/{{ item.key }}.com"
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ domains | dict2items }}"
+      notify: restart nginx
+
+    - name: Enable all nginx sites
+      file:
+        src: "{{ nginx_sites_available_path }}/{{ item.key }}.com"
+        dest: "{{ nginx_sites_enabled_path }}/{{ item.key }}.com" 
+        state: link
+      loop: "{{ domains | dict2items }}"
+      notify: restart nginx
+
+    - name: Deploy Ghost instances via role
+      include_role:
+        name: ghost
+
+    - name: Create deployment summary
+      copy:
+        content: |
+          # Ghost Instances Deployment Summary - {{ ansible_date_time.iso8601 }}
+          
+          ## 🎯 Deployed Instances
+          
+          {% for instance_name, config in ghost_instances.items() %}
+          ### {{ config.domain }}
+          - **Container**: {{ config.container_name }}
+          - **Port**: 127.0.0.1:{{ config.port }}
+          - **Database**: {{ config.mysql_database }}
+          - **Volume**: {{ config.volume_name }} (Steam Dock)
+          - **Tunnel**: {{ config.tunnel_name }}-tunnel
+          - **Admin**: {{ config.url }}/ghost/
+          
+          {% endfor %}
+          
+          ## 🔗 Access URLs (via Cloudflare tunnels)
+          
+          {% for instance_name, config in ghost_instances.items() %}
+          - **{{ config.domain }}**: {{ config.url }}
+          - **Admin Panel**: {{ config.url }}/ghost/
+          {% endfor %}
+          
+          ## 📦 Portainer Stacks
+          
+          After deployment, check Portainer at https://{{ ansible_default_ipv4.address }}:9443:
+          {% for instance_name, config in ghost_instances.items() %}
+          - Stack: ghost-blog-{{ instance_name }}
+          {% endfor %}
+          
+          ## 🛠️ Management Commands
+          
+          ### Check all instances
+          ```bash
+          {% for instance_name, config in ghost_instances.items() %}
+          curl -I http://localhost:{{ config.port }}  # {{ config.domain }}
+          {% endfor %}
+          ```
+          
+          ### Import data (for restored instances)
+          ```bash
+          # For OGRC (if restoring from backup)
+          docker cp /home/cloudcassette/ghost_downloads/ogrc_blog_import.json orlandogirlsrockcamp-blog:/tmp/
+          ```
+        dest: "{{ infrastructure_repo_path }}/docs/GHOST_DEPLOYMENT_STATUS.md"
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: '0644'
+
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

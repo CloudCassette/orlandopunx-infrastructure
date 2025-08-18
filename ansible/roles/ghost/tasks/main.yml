@@ -16,22 +16,49 @@
     name: "{{ ghost_network_name }}"
     driver: bridge
 
-- name: Create Ghost docker-compose file
-  template:
-    src: ghost-compose.yml.j2
-    dest: "{{ home_directory }}/docker-compose/ghost-services.yml"
-    owner: "{{ server_user }}"
-    group: "{{ server_user }}"
-    mode: '0644'
+- name: Create MySQL containers for each Ghost instance
+  community.docker.docker_container:
+    name: "{{ item.key }}-mysql"
+    image: "{{ ghost_mysql_image }}"
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ ghost_network_name }}"
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ ghost_mysql_root_password }}"
+      MYSQL_DATABASE: "{{ item.value.mysql_database }}"
+      MYSQL_USER: "{{ item.value.mysql_user }}"
+      MYSQL_PASSWORD: "{{ item.value.mysql_password }}"
+    volumes:
+      - "{{ item.value.mysql_volume_name }}:/var/lib/mysql"
+    state: started
+  loop: "{{ ghost_instances | dict2items }}"
 
-- name: Start Ghost services with docker-compose
-  community.docker.docker_compose_v2:
-    project_src: "{{ home_directory }}/docker-compose"
-    files:
-      - ghost-services.yml
-    state: present
+- name: Create Ghost containers (internal ports only - Cloudflare tunnel access)
+  community.docker.docker_container:
+    name: "{{ item.value.container_name }}"
+    image: "{{ item.value.image }}"
+    restart_policy: unless-stopped
+    # Only bind to localhost - Cloudflare tunnels handle external access
+    ports:
+      - "127.0.0.1:{{ item.value.port }}:{{ item.value.internal_port }}"
+    networks:
+      - name: "{{ ghost_network_name }}"
+    env:
+      url: "{{ item.value.url }}"
+      database__client: mysql
+      database__connection__host: "{{ item.key }}-mysql"
+      database__connection__user: "{{ item.value.mysql_user }}"
+      database__connection__password: "{{ item.value.mysql_password }}"
+      database__connection__database: "{{ item.value.mysql_database }}"
+      # Trust proxy headers from Cloudflare
+      privacy__useStructuredData: "false"
+      privacy__useUpdateCheck: "false"
+    volumes:
+      - "{{ item.value.volume_name }}:/var/lib/ghost/content"
+    state: started
+  loop: "{{ ghost_instances | dict2items }}"
 
-- name: Wait for Ghost instances to be ready
+- name: Wait for Ghost instances to be ready (internal access)
   uri:
     url: "http://localhost:{{ item.value.port }}"
     method: GET
@@ -42,3 +69,11 @@
   delay: 10
   loop: "{{ ghost_instances | dict2items }}"
   ignore_errors: yes
+
+- name: Create Ghost docker-compose file for Portainer management
+  template:
+    src: ghost-compose.yml.j2
+    dest: "{{ home_directory }}/docker-compose/ghost-all-instances.yml"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0644'

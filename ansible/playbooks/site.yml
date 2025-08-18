@@ -11,23 +11,29 @@
     - postgresql
     - nginx
     - ssl
+    - cloudflare
     - ghost
     - gancio
     
   tasks:
-    - name: Ensure server is properly configured
-      debug:
-        msg: "Infrastructure deployment complete for {{ inventory_hostname }}"
-        
-    - name: Display service URLs
+    - name: Display infrastructure summary
       debug:
         msg: |
-          🎸 Orlando Punx Services:
-          - Main Site: https://orlandopunx.com (Gancio)
-          - Blog: http://{{ ansible_default_ipv4.address }}:2368 (Ghost)
-          - Portainer: https://{{ ansible_default_ipv4.address }}:9443
+          🎸 Orlando Punx Infrastructure Deployed!
           
-          🔄 Ready for orlandogirlsrockcamp.com restoration!
+          📡 **Cloudflare Tunnel Services**:
+          {% for instance_name, config in ghost_instances.items() %}
+          - {{ config.domain }}: {{ config.url }} → localhost:{{ config.port }}
+          {% endfor %}
+          
+          🖥️  **Management Interfaces**:
+          - Portainer: https://{{ ansible_default_ipv4.address }}:9443
+          - Ghost Admin Panels: [domain]/ghost/
+          
+          🔄 **Internal Ports** (tunnel access only):
+          {% for instance_name, config in ghost_instances.items() %}
+          - {{ config.port }}: {{ config.domain }}
+          {% endfor %}
         
 - name: Configure Web Services
   hosts: webservers
@@ -48,6 +54,19 @@
   vars_files:
     - ../group_vars/vault.yml
   tasks:
-    - name: Ensure all Ghost containers are running
+    - name: Verify all Ghost instances are accessible
+      uri:
+        url: "http://localhost:{{ item.value.port }}"
+        method: GET
+        status_code: 200
+      loop: "{{ ghost_instances | dict2items }}"
+      ignore_errors: yes
+      register: ghost_health_checks
+      
+    - name: Display Ghost instance status
       debug:
-        msg: "Ghost services configured for {{ inventory_hostname }}"
+        msg: |
+          Ghost Health Check Results:
+          {% for result in ghost_health_checks.results %}
+          - Port {{ result.item.value.port }} ({{ result.item.value.domain }}): {{ 'OK' if result.status == 200 else 'FAILED' }}
+          {% endfor %}

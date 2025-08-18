@@ -1,26 +1,61 @@
 ---
-# Ghost configuration
+# Ghost configuration with proper port allocation for Cloudflare tunnel architecture
 ghost_instances:
   cloudcassette:
     container_name: cloudcassette-blog
     image: "ghost:latest"
-    port: 2368
-    url: "http://192.168.86.4:2368"
+    port: 2368  # Keep existing - cloudcassette.blog
+    internal_port: 2368
+    url: "https://cloudcassette.blog"
     mysql_database: ghost
     mysql_user: ghost
     mysql_password: "{{ vault_ghost_mysql_password }}"
     volume_name: cloudcassette_ghost_content
     mysql_volume_name: cloudcassette_ghost_mysql
+    domain: "cloudcassette.blog"
+    tunnel_name: "cloudcassette-blog"
+    
   orlandogirlsrockcamp:
     container_name: orlandogirlsrockcamp-blog
     image: "ghost:latest"  
-    port: 2369
+    port: 2369  # OGRC - Orlando Girls Rock Camp
+    internal_port: 2368
     url: "https://orlandogirlsrockcamp.com"
     mysql_database: orlandogirlsrockcamp
     mysql_user: ogrc_ghost
     mysql_password: "{{ vault_ogrc_ghost_mysql_password }}"
     volume_name: orlandogirlsrockcamp_ghost_content
     mysql_volume_name: orlandogirlsrockcamp_ghost_mysql
+    domain: "orlandogirlsrockcamp.com"
+    tunnel_name: "ogrc-blog"
+    
+  tamtamthesandwichman:
+    container_name: tamtam-blog
+    image: "ghost:latest"
+    port: 2370  # TamTam - Sandwich Man
+    internal_port: 2368
+    url: "https://tamtamthesandwichman.com"
+    mysql_database: tamtam
+    mysql_user: tamtam_ghost
+    mysql_password: "{{ vault_tamtam_ghost_mysql_password }}"
+    volume_name: tamtam_ghost_content
+    mysql_volume_name: tamtam_ghost_mysql
+    domain: "tamtamthesandwichman.com"
+    tunnel_name: "tamtam-blog"
+    
+  godlessamerica:
+    container_name: godlessamerica-blog
+    image: "ghost:latest"
+    port: 2371  # Godless America
+    internal_port: 2368
+    url: "https://godless-america.com"
+    mysql_database: godlessamerica
+    mysql_user: godless_ghost
+    mysql_password: "{{ vault_godless_ghost_mysql_password }}"
+    volume_name: godlessamerica_ghost_content
+    mysql_volume_name: godlessamerica_ghost_mysql
+    domain: "godless-america.com"
+    tunnel_name: "godless-america-blog"
 
 # MySQL configuration for Ghost
 ghost_mysql_root_password: "{{ vault_ghost_mysql_root_password }}"
@@ -28,3 +63,14 @@ ghost_mysql_image: "mysql:5.7"
 
 # Docker network
 ghost_network_name: ghost_network
+
+# Cloudflare tunnel configuration
+cloudflare_tunnel_enabled: true
+cloudflare_tunnel_image: "cloudflare/cloudflared:latest"
+
+# Port allocation strategy for internal access
+# 2368: cloudcassette.blog (existing)
+# 2369: orlandogirlsrockcamp.com (OGRC) 
+# 2370: tamtamthesandwichman.com (TamTam)
+# 2371: godless-america.com (Godless America)
+# All accessible via Cloudflare tunnels, not direct port exposure
