@@ -14,7 +14,7 @@ jobs:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
       
-    - name: 🎯 Step 1 - Enhanced Event Scraping & Discord
+    - name: 🎯 Enhanced Event Scraping & Discord Integration
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: |
@@ -23,58 +23,107 @@ jobs:
         # Activate virtual environment
         source venv/bin/activate
         
+        # Run the enhanced scraper
         echo "🎸 Running enhanced Will's Pub scraper..."
         python3 enhanced_willspub_sync.py
         
-        echo "📊 Scraping completed - check Discord for results"
+        echo "✅ Discord integration completed"
         
-    - name: 🌐 Step 2 - Add Events to orlandopunx.com 
+    - name: 🌐 Website Integration (orlandopunx.com)
       env:
         GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
         GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+        GANCIO_URL: https://orlandopunx.com
       run: |
-        cd gancio/scripts
+        cd scripts/event-sync
         
         if [ -n "$GANCIO_EMAIL" ] && [ -n "$GANCIO_PASSWORD" ]; then
           echo "🌐 Adding events to orlandopunx.com..."
           
-          # Use the working Gancio script with automation
-          python3 << 'PYTHON_EOF'
-import sys
+          # Create a simple Gancio integration script
+          cat > gancio_integration.py << 'PYEOF'
+import json
+import requests
 import os
-sys.path.append('/home/cloudcassette/orlandopunx-infrastructure/gancio/scripts')
+from datetime import datetime
 
-# Read the scraped events from the previous step
-events_file = '/home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/willspub_events.json'
+# Load the scraped events
+try:
+    with open('willspub_events.json', 'r') as f:
+        events = json.load(f)
+    print(f"📋 Found {len(events)} events to process")
+except:
+    print("❌ No events file found")
+    exit(1)
+
+# Setup Gancio session
+session = requests.Session()
+gancio_url = os.environ.get('GANCIO_URL', 'https://orlandopunx.com')
+
+# Authenticate
+login_data = {
+    'email': os.environ.get('GANCIO_EMAIL'),
+    'password': os.environ.get('GANCIO_PASSWORD')
+}
 
 try:
-    import json
-    with open(events_file, 'r') as f:
-        events = json.load(f)
-    
-    print(f"Found {len(events)} events to process")
-    
-    # Import and use the existing Gancio integration
-    from willspub_to_gancio_final_working import WillsPubGancioSync
-    
-    # Set up automatic authentication
-    os.environ['GANCIO_AUTO_EMAIL'] = os.environ.get('GANCIO_EMAIL', '')
-    os.environ['GANCIO_AUTO_PASSWORD'] = os.environ.get('GANCIO_PASSWORD', '')
-    
-    # Initialize and run sync
-    sync = WillsPubGancioSync('https://orlandopunx.com')
-    
-    # Authenticate (we'll need to modify the script to use env vars)
-    print("🔑 Authenticating with Gancio...")
-    
-    print("✅ Website integration setup complete")
-    
+    response = session.post(f"{gancio_url}/login", data=login_data)
+    if response.status_code == 200:
+        print("✅ Authenticated with orlandopunx.com")
+    else:
+        print(f"❌ Authentication failed: {response.status_code}")
+        exit(1)
 except Exception as e:
-    print(f"❌ Error in website integration: {e}")
+    print(f"❌ Auth error: {e}")
+    exit(1)
 
-PYTHON_EOF
+# Add events
+added_count = 0
+for event in events:
+    try:
+        event_date = event.get('date', '')
+        event_time = event.get('time', '19:00')
+        
+        if event_date:
+            date_obj = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
+            start_timestamp = int(date_obj.timestamp()) * 1000
+            end_timestamp = start_timestamp + (3 * 3600 * 1000)
+        else:
+            continue
+        
+        gancio_event = {
+            "title": event.get('title', ''),
+            "description": event.get('description', '') + f"\n\nMore info: {event.get('url', '')}",
+            "start_datetime": start_timestamp,
+            "end_datetime": end_timestamp,
+            "place_id": 1,
+            "tags": ["live-music", "willspub"],
+            "recurrent": False,
+            "online": False
+        }
+        
+        response = session.post(
+            f"{gancio_url}/add",
+            json=gancio_event,
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        if response.status_code in [200, 201]:
+            print(f"   ✅ Added: {event.get('title', 'Unknown')}")
+            added_count += 1
+        else:
+            print(f"   ⚠️  Skipped: {event.get('title', 'Unknown')} ({response.status_code})")
+            
+    except Exception as e:
+        print(f"   ❌ Error with {event.get('title', 'Unknown')}: {e}")
+
+print(f"🌐 Added {added_count} events to orlandopunx.com")
+PYEOF
+
+          python3 gancio_integration.py
+          
         else
-          echo "⚠️  No Gancio credentials provided - skipping website integration"
+          echo "⚠️  No Gancio credentials - skipping website integration"
           echo "Add GANCIO_EMAIL and GANCIO_PASSWORD secrets to enable this feature"
         fi
         
@@ -82,6 +131,7 @@ PYTHON_EOF
       run: |
         cd scripts/event-sync
         
+        echo ""
         echo "📊 Final Results:"
         echo "==============="
         if [ -f sync_summary.txt ]; then
@@ -90,7 +140,8 @@ PYTHON_EOF
         
         echo ""
         echo "🖼️ Flyers Downloaded:"
-        ls -la flyers/ 2>/dev/null || echo "No flyers directory"
+        ls -la flyers/ | wc -l
+        echo "$(ls flyers/ 2>/dev/null | wc -l) flyer files"
         
         # Archive results
         mkdir -p ../../backups/willspub-events
@@ -101,4 +152,4 @@ PYTHON_EOF
           cp -r flyers ../../backups/willspub-flyers/flyers_$(date +%Y%m%d_%H%M)/ 2>/dev/null || true
         fi
         
-        echo "✅ Complete automation finished!"
+        echo "✅ Complete automation pipeline finished!"
