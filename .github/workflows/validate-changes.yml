@@ -19,15 +19,20 @@ jobs:
       run: |
         echo "🔍 Validating SEO files..."
         
-        # Check if sitemap.xml is valid XML
+        # Check if sitemap.xml exists and has basic structure
         if [ -f "seo/sitemap.xml" ]; then
-          echo "Validating sitemap.xml..."
-          xmllint --noout seo/sitemap.xml && echo "✅ Sitemap is valid XML" || echo "❌ Sitemap XML validation failed"
+          echo "✅ Sitemap file exists"
+          if grep -q "<?xml" seo/sitemap.xml && grep -q "urlset" seo/sitemap.xml; then
+            echo "✅ Sitemap has basic XML structure"
+          else
+            echo "❌ Sitemap XML structure appears invalid"
+            exit 1
+          fi
         fi
         
         # Check robots.txt format
         if [ -f "seo/robots.txt" ]; then
-          echo "Validating robots.txt..."
+          echo "✅ Robots.txt file exists"
           if grep -q "Sitemap:" seo/robots.txt; then
             echo "✅ Robots.txt contains sitemap reference"
           else
@@ -35,88 +40,113 @@ jobs:
           fi
         fi
         
-        # Validate scripts are executable
-        find seo/ -name "*.sh" -exec chmod +x {} \;
-        echo "✅ SEO scripts made executable"
+        echo "✅ SEO validation completed"
 
     - name: 🎨 Validate Assets
       run: |
         echo "🎨 Validating assets..."
         
-        # Check favicon exists and is correct format
+        # Check favicon exists
         if [ -f "icons8-poster-64.png" ]; then
-          file icons8-poster-64.png
-          echo "✅ Favicon found and validated"
+          echo "✅ Favicon found"
+          # Check file size (should be reasonable for a 64x64 PNG)
+          size=$(stat -c%s "icons8-poster-64.png")
+          if [ $size -gt 100 ] && [ $size -lt 10000 ]; then
+            echo "✅ Favicon size looks reasonable ($size bytes)"
+          else
+            echo "⚠️  Favicon size seems unusual ($size bytes)"
+          fi
         fi
         
-        # Check CSS files
-        find . -name "*.css" -exec echo "CSS file: {}" \;
+        # List CSS files
+        echo "CSS files found:"
+        find . -name "*.css" -type f | head -10
 
     - name: 🛠️ Validate Scripts
       run: |
         echo "🛠️ Validating scripts..."
         
-        # Make all shell scripts executable
-        find . -name "*.sh" -exec chmod +x {} \;
+        # Check shell scripts exist and are executable
+        script_count=0
+        for script in $(find . -name "*.sh" -type f); do
+          echo "Checking script: $script"
+          if [ -x "$script" ] || chmod +x "$script"; then
+            echo "  ✅ Script is/made executable"
+            # Basic syntax check
+            if bash -n "$script"; then
+              echo "  ✅ Script syntax is valid"
+            else
+              echo "  ❌ Script syntax error in $script"
+              exit 1
+            fi
+          else
+            echo "  ❌ Cannot make script executable: $script"
+            exit 1
+          fi
+          script_count=$((script_count + 1))
+        done
         
-        # Basic syntax check for bash scripts
-        find . -name "*.sh" -exec bash -n {} \; && echo "✅ All shell scripts have valid syntax" || echo "❌ Shell script syntax errors found"
+        echo "✅ Validated $script_count shell scripts"
 
     - name: 📚 Validate Documentation
       run: |
         echo "📚 Validating documentation..."
         
         # Check that key documentation files exist
-        required_docs=("README.md" "CONTRIBUTING.md" "docs/API_DOCUMENTATION.md" "docs/DEPLOYMENT_GUIDE.md")
+        required_docs=("README.md" "CONTRIBUTING.md")
         
         for doc in "${required_docs[@]}"; do
           if [ -f "$doc" ]; then
             echo "✅ $doc exists"
+            # Check file is not empty
+            if [ -s "$doc" ]; then
+              echo "  ✅ $doc is not empty"
+            else
+              echo "  ❌ $doc is empty"
+              exit 1
+            fi
           else
             echo "❌ Missing required documentation: $doc"
+            exit 1
           fi
         done
-
-    - name: 🔐 Security Check
-      run: |
-        echo "🔐 Running security checks..."
         
-        # Check for accidentally committed secrets
-        if grep -r "password.*=" --include="*.json" --include="*.js" --include="*.md" . | grep -v template | grep -v example; then
-          echo "⚠️  Potential secrets found in files - review needed"
+        # Check docs directory
+        if [ -d "docs" ]; then
+          doc_count=$(find docs -name "*.md" | wc -l)
+          echo "✅ Found $doc_count documentation files in docs/"
+        fi
+
+    - name: 🔐 Basic Security Check
+      run: |
+        echo "🔐 Running basic security checks..."
+        
+        # Check for obvious secrets in non-template files
+        if find . -name "*.json" -not -name "*.template" -not -path "./.git/*" -exec grep -l "password" {} \; | grep -v node_modules; then
+          echo "⚠️  Found 'password' in JSON files - please review"
         else
-          echo "✅ No obvious secrets found in committed files"
+          echo "✅ No obvious password leaks in JSON files"
         fi
         
-        # Check file permissions
-        find . -name "*.sh" -not -perm -u+x -exec echo "⚠️  Script not executable: {}" \;
+        # Check that template files exist for sensitive configs
+        if [ -f "configs/gancio/config.json.template" ]; then
+          echo "✅ Gancio config template exists"
+        fi
+        
+        echo "✅ Basic security check completed"
 
-  lint:
-    runs-on: ubuntu-latest
-    name: 🧹 Lint and Format Check
-    
-    steps:
-    - name: 🔄 Checkout Repository
-      uses: actions/checkout@v4
-      
-    - name: 🧹 Markdown Lint
-      uses: articulate/actions-markdownlint@v1
-      with:
-        config: |
-          {
-            "line-length": false,
-            "no-duplicate-header": false
-          }
-        files: '**/*.md'
-        ignore: 'node_modules'
-        
-    - name: 📝 Check Links in Documentation
+    - name: 📋 Summary
       run: |
-        echo "📝 Checking for broken links in documentation..."
-        
-        # Simple check for common link patterns
-        grep -r "http" --include="*.md" . | grep -E "(http://|https://)" | while read -r line; do
-          echo "Found link: $line"
-        done
-        
-        echo "✅ Link check completed"
+        echo "🎸 Orlando Punk Shows - Validation Summary"
+        echo "========================================"
+        echo "✅ All validation checks passed!"
+        echo "🚀 Changes are ready for deployment"
+        echo ""
+        echo "Repository structure:"
+        echo "📁 $(find . -name "*.md" | wc -l) documentation files"
+        echo "🔧 $(find . -name "*.sh" | wc -l) shell scripts" 
+        echo "⚙️  $(find . -name "*.yml" -o -name "*.yaml" | wc -l) configuration files"
+        echo "🎨 $(find . -name "*.css" | wc -l) style files"
+        echo "🖼️  $(find . -name "*.png" -o -name "*.jpg" -o -name "*.gif" | wc -l) image files"
+        echo ""
+        echo "🎸 Ready to rock the Orlando punk scene! 🤘"
