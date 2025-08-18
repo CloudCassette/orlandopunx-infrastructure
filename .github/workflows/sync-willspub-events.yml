@@ -14,67 +14,38 @@ jobs:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
       
-    - name: 🎯 Scrape Will's Pub Events
+    - name: 🎯 Enhanced Event Scraping with Flyers
+      env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: |
         cd scripts/event-sync
         
         # Activate virtual environment
         source venv/bin/activate
         
-        # Run the scraper to get latest events
-        echo "🎸 Scraping events from Will's Pub..."
-        python3 willspub_manual_import.py << EOF
-        20
-        EOF
+        # Run the enhanced scraper
+        echo "🎸 Running enhanced Will's Pub scraper..."
+        python3 enhanced_willspub_sync.py
         
-        # Check if new events were found
-        EVENTS_COUNT=$(jq length willspub_events.json)
-        echo "📊 Found $EVENTS_COUNT events from Will's Pub"
+        # Show what was downloaded
+        echo "📊 Sync Results:"
+        echo "==============="
+        if [ -f sync_summary.txt ]; then
+          cat sync_summary.txt
+        fi
         
-        # Copy results to a timestamped backup
-        mkdir -p ../../backups/willspub-events
-        cp willspub_events.* ../../backups/willspub-events/willspub_events_$(date +%Y%m%d_%H%M).
-        
-        echo "✅ Event scraping completed"
-        echo "📝 Results saved to: scripts/event-sync/willspub_events.*"
-        echo "🔄 Manual import files ready for Gancio admin review"
-        
-    - name: 📋 Summary Report
-      run: |
-        cd scripts/event-sync
-        echo "📊 Will's Pub Event Sync Summary"
-        echo "================================="
-        echo "📅 Sync Time: $(date)"
-        echo "📍 Events Found: $(jq length willspub_events.json) events"
-        echo "📄 Files Generated:"
-        echo "   - willspub_events.txt (manual import)"
-        echo "   - willspub_events.json (API data)" 
-        echo "   - willspub_events.csv (spreadsheet)"
         echo ""
-        echo "🎯 Next Steps:"
-        echo "   1. Review willspub_events.txt for new events"
-        echo "   2. Add interesting events to Gancio admin panel"
-        echo "   3. Check orlandopunx.com for updated event listings"
-
-  notify:
-    runs-on: ubuntu-latest
-    needs: sync-events
-    if: always()
-    name: 📢 Notify Sync Status
-    
-    steps:
-    - name: 📧 Send Discord Notification
-      if: always()
-      uses: tsickert/discord-webhook@v6.0.0
-      with:
-        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        content: |
-          🎸 **Will's Pub Event Sync**
-          
-          **Status:** ${{ needs.sync-events.result == 'success' && '✅ Success' || '❌ Failed' }}
-          **Time:** $(date)
-          **Repository:** ${{ github.repository }}
-          
-          ${{ needs.sync-events.result == 'success' && '📅 New events scraped and ready for review!' || '⚠️ Event sync failed - check action logs' }}
-          
-          **Action Run:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        echo "🖼️ Flyers Downloaded:"
+        ls -la flyers/ 2>/dev/null || echo "No flyers directory yet"
+        
+        # Archive results
+        mkdir -p ../../backups/willspub-events
+        cp willspub_events.* ../../backups/willspub-events/willspub_events_$(date +%Y%m%d_%H%M).* 2>/dev/null || true
+        
+        if [ -d flyers ] && [ "$(ls -A flyers)" ]; then
+          cp -r flyers ../../backups/willspub-flyers/flyers_$(date +%Y%m%d_%H%M)/ 2>/dev/null || true
+        fi
+        
+        echo "✅ Enhanced event scraping completed"
+        
+  # Remove the separate notify job since enhanced scraper posts to Discord directly

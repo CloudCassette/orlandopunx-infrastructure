@@ -1,0 +1,135 @@
+WILL'S PUB EVENTS FOR GANCIO IMPORT
+==================================================
+Generated: 2025-08-18 10:13:58
+Total Events: 10
+
+EVENT #1: Kaleigh Baker
+========================
+📅 Date: August 18, 2025 (Monday)
+    ISO Format: 2025-08-18
+🕐 Time: 7:00 PM (19:00)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/kaleigh-baker-7/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #2: Indie 900 Jam
+========================
+📅 Date: August 19, 2025 (Tuesday)
+    ISO Format: 2025-08-19
+🕐 Time: 9:30 PM (21:30)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/indie-900-jam-4/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #3: Hard Swingin' Country Soiree with Decker & Dimitrov
+==============================================================
+📅 Date: August 20, 2025 (Wednesday)
+    ISO Format: 2025-08-20
+🕐 Time: 7:00 PM (19:00)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/hard-swingin-country-soiree-with-decker-dimitrov-3/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #4: Official Unofficial &quot;Best Of&quot; Orlando Weekly Party and Award Pick-Up
+=========================================================================================
+📅 Date: August 20, 2025 (Wednesday)
+    ISO Format: 2025-08-20
+🕐 Time: 7:00 PM (19:00)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/official-unofficial-best-of-orlando-weekly-party-and-award-pick-up/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #5: Nesto's Jazz Trio
+============================
+📅 Date: August 20, 2025 (Wednesday)
+    ISO Format: 2025-08-20
+🕐 Time: 10:00 PM (22:00)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/nestos-jazz-trio-3/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #6: GODS. with Here Here and mode.
+=========================================
+📅 Date: August 21, 2025 (Thursday)
+    ISO Format: 2025-08-21
+🕐 Time: 7:00 PM (19:00)
+📍 Venue: Will's Pub
+💰 Price: $17.17
+🔗 URL: https://willspub.org/tm-event/gods-with-here-here-and-mode/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #7: Thursday Thinks Trivia
+=================================
+📅 Date: August 21, 2025 (Thursday)
+    ISO Format: 2025-08-21
+🕐 Time: 7:30 PM (19:30)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/thursday-thinks-trivia-7/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #8: Baron Von Yeti
+=========================
+📅 Date: August 21, 2025 (Thursday)
+    ISO Format: 2025-08-21
+🕐 Time: 10:30 PM (22:30)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/baron-von-yeti-7/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #9: Alphabet Aces
+========================
+📅 Date: August 22, 2025 (Friday)
+    ISO Format: 2025-08-22
+🕐 Time: 8:00 PM (20:00)
+📍 Venue: Will's Pub
+💰 Price: $16.44
+🔗 URL: https://willspub.org/tm-event/alphabet-aces/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
+EVENT #10: DJ BMF
+==================
+📅 Date: August 22, 2025 (Friday)
+    ISO Format: 2025-08-22
+🕐 Time: 10:00 PM (22:00)
+📍 Venue: Will's Pub
+💰 Price: $0.00
+🔗 URL: https://willspub.org/tm-event/dj-bmf-9/
+📝 Description:
+Live music event at Will's Pub
+
+--------------------------------------------------
+
