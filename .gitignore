@@ -50,3 +50,4 @@ temp/
 
 # Runtime files
 *.pid
+scripts/event-sync/venv/
