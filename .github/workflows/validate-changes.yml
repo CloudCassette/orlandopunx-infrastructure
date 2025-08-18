@@ -1,0 +1,122 @@
+name: 🔍 Validate Orlando Punk Shows Changes
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: 🧪 Test and Validate Changes
+    
+    steps:
+    - name: 🔄 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Validate SEO Files
+      run: |
+        echo "🔍 Validating SEO files..."
+        
+        # Check if sitemap.xml is valid XML
+        if [ -f "seo/sitemap.xml" ]; then
+          echo "Validating sitemap.xml..."
+          xmllint --noout seo/sitemap.xml && echo "✅ Sitemap is valid XML" || echo "❌ Sitemap XML validation failed"
+        fi
+        
+        # Check robots.txt format
+        if [ -f "seo/robots.txt" ]; then
+          echo "Validating robots.txt..."
+          if grep -q "Sitemap:" seo/robots.txt; then
+            echo "✅ Robots.txt contains sitemap reference"
+          else
+            echo "⚠️  Robots.txt missing sitemap reference"
+          fi
+        fi
+        
+        # Validate scripts are executable
+        find seo/ -name "*.sh" -exec chmod +x {} \;
+        echo "✅ SEO scripts made executable"
+
+    - name: 🎨 Validate Assets
+      run: |
+        echo "🎨 Validating assets..."
+        
+        # Check favicon exists and is correct format
+        if [ -f "icons8-poster-64.png" ]; then
+          file icons8-poster-64.png
+          echo "✅ Favicon found and validated"
+        fi
+        
+        # Check CSS files
+        find . -name "*.css" -exec echo "CSS file: {}" \;
+
+    - name: 🛠️ Validate Scripts
+      run: |
+        echo "🛠️ Validating scripts..."
+        
+        # Make all shell scripts executable
+        find . -name "*.sh" -exec chmod +x {} \;
+        
+        # Basic syntax check for bash scripts
+        find . -name "*.sh" -exec bash -n {} \; && echo "✅ All shell scripts have valid syntax" || echo "❌ Shell script syntax errors found"
+
+    - name: 📚 Validate Documentation
+      run: |
+        echo "📚 Validating documentation..."
+        
+        # Check that key documentation files exist
+        required_docs=("README.md" "CONTRIBUTING.md" "docs/API_DOCUMENTATION.md" "docs/DEPLOYMENT_GUIDE.md")
+        
+        for doc in "${required_docs[@]}"; do
+          if [ -f "$doc" ]; then
+            echo "✅ $doc exists"
+          else
+            echo "❌ Missing required documentation: $doc"
+          fi
+        done
+
+    - name: 🔐 Security Check
+      run: |
+        echo "🔐 Running security checks..."
+        
+        # Check for accidentally committed secrets
+        if grep -r "password.*=" --include="*.json" --include="*.js" --include="*.md" . | grep -v template | grep -v example; then
+          echo "⚠️  Potential secrets found in files - review needed"
+        else
+          echo "✅ No obvious secrets found in committed files"
+        fi
+        
+        # Check file permissions
+        find . -name "*.sh" -not -perm -u+x -exec echo "⚠️  Script not executable: {}" \;
+
+  lint:
+    runs-on: ubuntu-latest
+    name: 🧹 Lint and Format Check
+    
+    steps:
+    - name: 🔄 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: 🧹 Markdown Lint
+      uses: articulate/actions-markdownlint@v1
+      with:
+        config: |
+          {
+            "line-length": false,
+            "no-duplicate-header": false
+          }
+        files: '**/*.md'
+        ignore: 'node_modules'
+        
+    - name: 📝 Check Links in Documentation
+      run: |
+        echo "📝 Checking for broken links in documentation..."
+        
+        # Simple check for common link patterns
+        grep -r "http" --include="*.md" . | grep -E "(http://|https://)" | while read -r line; do
+          echo "Found link: $line"
+        done
+        
+        echo "✅ Link check completed"

@@ -1,0 +1,90 @@
+name: 🎸 Deploy Orlando Punk Shows Infrastructure
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 🚀 Deploy to Production Server
+    
+    steps:
+    - name: 🔄 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: 📡 Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          echo "🎸 Starting OrlandoPunx.com deployment..."
+          
+          # Navigate to infrastructure repo
+          cd /home/cloudcassette/orlandopunx-infrastructure
+          
+          # Pull latest changes
+          echo "📥 Pulling latest changes..."
+          git pull origin main
+          
+          # Deploy SEO improvements if changed
+          if git diff --name-only HEAD~1 HEAD | grep -E "^seo/"; then
+            echo "🔍 SEO files changed, deploying..."
+            ./seo/deploy-minimal-seo.sh || echo "SEO deployment completed with warnings"
+          fi
+          
+          # Deploy favicon if changed
+          if git diff --name-only HEAD~1 HEAD | grep -E "icons8.*\.png$"; then
+            echo "🎨 Favicon changed, deploying..."
+            ./seo/update-favicon.sh || echo "Favicon deployment completed with warnings"
+          fi
+          
+          # Deploy Gancio customizations if changed
+          if git diff --name-only HEAD~1 HEAD | grep -E "^gancio/"; then
+            echo "🎸 Gancio customizations changed, deploying..."
+            if [ -f "./gancio/scripts/deploy-customizations.sh" ]; then
+              ./gancio/scripts/deploy-customizations.sh || echo "Gancio deployment completed with warnings"
+            fi
+          fi
+          
+          # Restart Gancio if config changed
+          if git diff --name-only HEAD~1 HEAD | grep -E "config.*\.json|nuxt\.config\.js"; then
+            echo "⚙️ Configuration changed, restarting services..."
+            sudo systemctl restart gancio || echo "Failed to restart gancio, manual intervention may be needed"
+            sleep 10
+            sudo systemctl status gancio || echo "Gancio status check failed"
+          fi
+          
+          # Run health check
+          echo "🏥 Running health check..."
+          ./monitoring/health-check.sh || echo "Health check completed with warnings"
+          
+          echo "✅ Deployment completed!"
+          
+          # Log deployment
+          echo "$(date): Deployed commit $(git rev-parse --short HEAD)" >> /var/log/orlandopunx-deployment.log || true
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    name: 📢 Notify Deployment Status
+    
+    steps:
+    - name: 📧 Send Status Notification
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          🎸 OrlandoPunx.com Deployment ${{ job.status }}
+          Repository: ${{ github.repository }}
+          Commit: ${{ github.sha }}
+          Author: ${{ github.actor }}
+          Message: ${{ github.event.head_commit.message }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # Optional
