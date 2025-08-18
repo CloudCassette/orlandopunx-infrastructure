@@ -1,0 +1,246 @@
+html, body {
+  scrollbar-width: thin;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  scrollbar-color: #FF4511 #111;
+  font-family: sans-serif;
+}
+
+li {
+  margin-left: 10px;
+}
+
+.theme--light .v-card {
+  background-color: #f8f8f8 !important;
+}
+
+.v-dialog .theme--dark.v-card {
+  background-color: #333;
+}
+
+.v-application {
+  font-family: sans-serif;
+}
+
+.v-application .p-description.text-body-1 {
+  letter-spacing: normal !important;
+}
+
+/* https://github.com/vuetifyjs/vuetify/issues/8875#issuecomment-559900683 */
+.v-slide-group__prev {
+  display: none !important;
+}
+
+.v-toolbar .v-list-item__subtitle,
+.v-toolbar h4 {
+  white-space: break-spaces;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.v-application--is-ltr .v-list-item__action:first-child,
+.v-application--is-ltr .v-list-item__icon:first-child {
+  margin-right: 20px !important;
+}
+
+#home {
+  max-width: 1400px;
+  /* padding: 0px; */
+  /* overflow: hidden; */
+}
+
+#events {
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+@media only screen and (max-width: 600px) {
+  #events {
+    gap: 8px;
+  }
+}
+
+.calh {
+  /* this is to avoid content shift layout as v-calendar does not support SSR */
+  height: 268px;
+  max-width: 600px;
+}
+
+.container {
+  max-width: 1400px;
+}
+
+.v-dialog {
+  width: 600px;
+  max-width: 800px;
+}
+
+.v-dialog--fullscreen {
+  max-width: 100% !important;
+}
+
+.v-application p {
+  min-height: 1.3em;
+}
+
+.v-application blockquote {
+  font-style: italic;
+  padding: 15px;
+}
+
+.editor .ProseMirror {
+  background-color: #eee;
+}
+
+.theme--dark .editor .ProseMirror {
+  background-color: #292929;
+}
+
+.theme--dark .v-menu__content {
+  border: 1px solid #333;
+}
+
+.theme--light .v-menu__content {
+  border: 1px solid #ccc;
+}
+
+.v-card .v-icon {
+  opacity: 0.6;
+}
+
+.v-menu__content {
+  scrollbar-width: thin;
+  scrollbar-color: #FF4511 #111;
+  box-shadow: none !important;
+}
+
+.v-autocomplete__content.v-menu__content .v-select-list {
+  border-radius: 0 !important;
+}
+
+.v-sheet.v-card {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.theme--dark .event {
+  border: 1px solid #333;
+}
+
+.theme--light .event {
+  border: 1px solid #e9e9e9;
+}
+
+.event {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  width: 330px;
+  max-width: 500px !important;
+  flex-grow: 1;
+  /* margin-top: 16px;
+  margin-right: 16px; */
+  transition: all .5s;
+  min-height: 288px;
+  overflow: hidden;
+  /* box-shadow: none; */
+  /* border-radius: none; */
+  /* box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12); */
+  /* border-radius: 4px; */
+}
+
+.event  .title {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0.5rem 1rem 0.5rem 1rem;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  font-size: 1.1em !important;
+  line-height: 1.2em !important;
+  /* text-decoration: none; */
+}
+
+.event .body {
+  flex: 1 1 auto;
+}
+
+/* .event .place span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+} */
+
+.event a {
+  text-decoration: none;
+}
+
+.event a:hover,
+.event a:focus {
+  text-decoration: underline;
+}
+
+.vc-past {
+  opacity: 0.4;
+}
+
+#event {
+  max-width: 1200px;
+  overflow-wrap: break-word;
+}
+
+/* .tags .v-chip .v-chip__content {
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  display: block;
+} */
+
+.cursorPointer {
+  cursor: pointer;
+}
+
+pre {
+  white-space: break-spaces;
+  font-size: 13px;
+}
+
+/* CRITICAL: Override the Vue component's scoped styles for image display */
+/* These rules have maximum specificity to override component styles */
+
+/* Base image styles */
+.img {
+  width: 100% !important;
+  height: auto !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: flex !important;
+  background-size: contain !important;
+}
+
+.img img {
+  object-fit: contain !important;
+  max-height: 125vh !important;
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  overflow: hidden !important;
+  transition: opacity .5s !important;
+  opacity: 1 !important;
+  background-size: 100% !important;
+}
+
+/* OVERRIDE: Fix thumbnail images to show complete flyers */
+.img.thumb img {
+  display: flex !important;
+  max-height: none !important;
+  min-height: auto !important;
+  object-fit: contain !important;  /* Changed from 'cover' to 'contain' */
+  object-position: center !important;  /* Changed from 'top' to 'center' */
+  aspect-ratio: auto !important;  /* Changed from '1.7778' to 'auto' */
+  height: auto !important;
+  width: 100% !important;
+}

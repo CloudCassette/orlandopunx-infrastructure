@@ -1,0 +1,52 @@
+# Sensitive configuration files
+configs/gancio/config.json
+**/passwords.txt
+**/secrets.txt
+*.key
+*.pem
+
+# Database files
+*.sqlite
+*.db
+
+# Log files
+*.log
+logs/
+
+# Backup files
+backups/*.tar.gz
+backups/*.zip
+*.backup
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# SSL certificates
+*.crt
+*.cert
+*.ca-bundle
+
+# Local environment files
+.env
+.env.local
+.env.production
+
+# Runtime files
+*.pid

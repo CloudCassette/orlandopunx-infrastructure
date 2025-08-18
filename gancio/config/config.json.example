@@ -1,0 +1,45 @@
+{
+  "baseurl": "https://orlandopunx.com",
+  "hostname": "orlandopunx.com",
+  "server": {
+    "host": "0.0.0.0",
+    "port": 13120
+  },
+  "log_level": "debug",
+  "log_path": "/var/lib/gancio/logs",
+  "db": {
+    "dialect": "sqlite",
+    "storage": "/var/lib/gancio/gancio.sqlite",
+    "host": "localhost",
+    "database": "gancio",
+    "username": "gancio",
+    "password": "YOUR_DB_PASSWORD",
+    "logging": false,
+    "dialectOptions": {
+      "autoJsonMap": false
+    },
+    "retry": {
+      "match": [
+        null,
+        null,
+        null,
+        {},
+        {}
+      ],
+      "max": 15
+    }
+  },
+  "upload_path": "/var/lib/gancio/uploads",
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "secure": false,
+    "auth": {
+      "user": "godlessamericarecords@gmail.com",
+      "pass": "YOUR_SMTP_PASSWORD"
+    }
+  },
+  "email": {
+    "from": "godlessamericarecords@gmail.com"
+  }
+}

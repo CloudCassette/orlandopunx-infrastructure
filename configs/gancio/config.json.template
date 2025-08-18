@@ -1,0 +1,55 @@
+{
+  "baseurl": "https://orlandopunx.com",
+  "hostname": "orlandopunx.com",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 13120
+  },
+  "log_level": "info",
+  "log_path": "/var/lib/gancio/logs",
+  "db": {
+    "dialect": "sqlite",
+    "storage": "/var/lib/gancio/gancio.sqlite",
+    "host": "localhost",
+    "database": "gancio",
+    "username": "gancio",
+    "password": "YOUR_DB_PASSWORD",
+    "logging": false,
+    "dialectOptions": {
+      "autoJsonMap": false
+    },
+    "retry": {
+      "match": [null, null, null, {}, {}],
+      "max": 15
+    }
+  },
+  "upload_path": "/var/lib/gancio/uploads",
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "secure": false,
+    "auth": {
+      "user": "godlessamericarecords@gmail.com",
+      "pass": "YOUR_SMTP_APP_PASSWORD"
+    }
+  },
+  "email": {
+    "from": "godlessamericarecords@gmail.com"
+  },
+  "instance": {
+    "name": "Orlando Punk Shows",
+    "description": "A digital poster wall for underground punk shows in Orlando, FL",
+    "timezone": "America/New_York",
+    "locale": "en",
+    "allow_registration": false,
+    "allow_anon_event": false,
+    "allow_recurrent_event": true,
+    "enable_federation": false
+  },
+  "theme": {
+    "primary": "#FF4500",
+    "secondary": "#424242",
+    "accent": "#ff4081",
+    "is_dark": true
+  }
+}
