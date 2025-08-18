@@ -124,6 +124,79 @@ class EnhancedWillsPubSync:
             print(f"   ❌ Error adding to Gancio: {e}")
             return False
 
+    def authenticate_gancio(self, gancio_url, email=None, password=None):
+        """Authenticate with Gancio using environment variables"""
+        self.gancio_base_url = gancio_url.rstrip('/')
+        self.gancio_authenticated = False
+        
+        gancio_email = email or os.environ.get('GANCIO_EMAIL')
+        gancio_password = password or os.environ.get('GANCIO_PASSWORD')
+        
+        if not gancio_email or not gancio_password:
+            print("⚠️  No Gancio credentials - skipping website integration")
+            return False
+        
+        try:
+            login_data = {'email': gancio_email, 'password': gancio_password}
+            response = self.session.post(f"{self.gancio_base_url}/login", data=login_data)
+            
+            if response.status_code == 200:
+                print("✅ Gancio authentication successful!")
+                self.gancio_authenticated = True
+                return True
+            else:
+                print(f"❌ Gancio auth failed: {response.status_code}")
+                return False
+        except Exception as e:
+            print(f"❌ Gancio auth error: {e}")
+            return False
+    
+    def add_event_to_gancio(self, event):
+        """Add event to Gancio"""
+        if not getattr(self, 'gancio_authenticated', False):
+            return False
+            
+        try:
+            from datetime import datetime
+            
+            event_date = event.get('date', '')
+            event_time = event.get('time', '19:00')
+            
+            if event_date:
+                date_obj = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
+                start_timestamp = int(date_obj.timestamp()) * 1000
+                end_timestamp = start_timestamp + (3 * 3600 * 1000)
+            else:
+                return False
+            
+            gancio_event = {
+                "title": event.get('title', ''),
+                "description": event.get('description', '') + f"\n\nMore info: {event.get('url', '')}",
+                "start_datetime": start_timestamp,
+                "end_datetime": end_timestamp,
+                "place_id": 1,
+                "tags": ["live-music", "willspub"],
+                "recurrent": False,
+                "online": False
+            }
+            
+            response = self.session.post(
+                f"{self.gancio_base_url}/add",
+                json=gancio_event,
+                headers={'Content-Type': 'application/json'}
+            )
+            
+            if response.status_code in [200, 201]:
+                print(f"   ✅ Added to website: {event.get('title', 'Unknown')}")
+                return True
+            else:
+                print(f"   ❌ Failed to add: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"   ❌ Error: {e}")
+            return False
+    
     def download_flyer(self, event_url, event_title):
         """Download show flyer from event page"""
         try:
@@ -397,6 +470,13 @@ if __name__ == "__main__":
     if gancio_email and gancio_password:
         print("🌐 Connecting to Gancio...")
         syncer.authenticate_gancio(gancio_url, gancio_email, gancio_password)
+    
+    
+    # Gancio setup
+    gancio_url = os.environ.get('GANCIO_URL', 'https://orlandopunx.com')
+    if os.environ.get('GANCIO_EMAIL') and os.environ.get('GANCIO_PASSWORD'):
+        print("🌐 Setting up Gancio integration...")
+        syncer.authenticate_gancio(gancio_url)
     
     has_new_events = syncer.sync_events()
     

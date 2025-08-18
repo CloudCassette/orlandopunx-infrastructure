@@ -14,20 +14,36 @@ jobs:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
       
-    - name: 🎯 Enhanced Event Scraping with Flyers
+    - name: 🎯 Enhanced Event Scraping with Discord & Website Integration
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        GANCIO_URL: ${{ secrets.GANCIO_URL || 'https://orlandopunx.com' }}
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
       run: |
         cd scripts/event-sync
         
         # Activate virtual environment
         source venv/bin/activate
         
-        # Run the enhanced scraper
+        # Run the enhanced scraper with both Discord and Gancio integration
         echo "🎸 Running enhanced Will's Pub scraper..."
-        python3 enhanced_willspub_sync.py
+        echo "📋 Features enabled:"
+        echo "  ✅ Event scraping from Will's Pub"
+        echo "  ✅ Flyer downloads (high-quality images)"
+        echo "  ✅ Discord notifications"
+        
+        if [ -n "$GANCIO_EMAIL" ] && [ -n "$GANCIO_PASSWORD" ]; then
+          echo "  ✅ Website integration (orlandopunx.com)"
+        else
+          echo "  ⚠️  Website integration disabled (no credentials)"
+        fi
+        
+        echo ""
+        python3 enhanced_willspub_sync_with_gancio.py
         
         # Show what was downloaded
+        echo ""
         echo "📊 Sync Results:"
         echo "==============="
         if [ -f sync_summary.txt ]; then
@@ -43,9 +59,8 @@ jobs:
         cp willspub_events.* ../../backups/willspub-events/willspub_events_$(date +%Y%m%d_%H%M).* 2>/dev/null || true
         
         if [ -d flyers ] && [ "$(ls -A flyers)" ]; then
+          mkdir -p ../../backups/willspub-flyers
           cp -r flyers ../../backups/willspub-flyers/flyers_$(date +%Y%m%d_%H%M)/ 2>/dev/null || true
         fi
         
         echo "✅ Enhanced event scraping completed"
-        
-  # Remove the separate notify job since enhanced scraper posts to Discord directly
