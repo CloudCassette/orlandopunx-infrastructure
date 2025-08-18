@@ -1,0 +1,16 @@
+name: 🧪 Test Discord Notification
+
+on:
+  workflow_dispatch: # Manual trigger only
+
+jobs:
+  test-notification:
+    runs-on: ubuntu-latest
+    name: 📢 Test Discord Webhook
+    
+    steps:
+    - name: 📧 Send Test Discord Notification
+      uses: tsickert/discord-webhook@v6.0.0
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        content: "🧪 **Test notification from OrlandoPunx Infrastructure**\n\nThis is a test to verify Discord webhook is working properly.\n\nTime: $(date)\nRepository: ${{ github.repository }}"
