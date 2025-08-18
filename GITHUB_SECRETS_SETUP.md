@@ -34,18 +34,18 @@ Click **"New repository secret"** for each of these:
 
 #### SECRET 3: `SERVER_SSH_KEY`
 - **Name**: `SERVER_SSH_KEY`
-- **Value**: Copy the ENTIRE private key from below (including BEGIN/END lines)
-```
------BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABCE/lq7gP
-LMusRxWqzU35uNAAAAEAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIFF5gb8r+pd++3wM
-JrupZ6Y99RA0YBsYv01uuyeHPX3XAAAAoGQxFK4zLd1rG2jo9tGh6oPJ+3aCcmGs4Edudw
-C8+u1unQyGDKbqZDUIDmUj5CDOV9SI8eEt8x52iSo1NAiUpiyZzsb6adnfrZN3vt0nuos7
-fjF9wgiZwQJUQ5XSwm0d4QkjFNns/IcCGCqv/Eu5eiDkkReCeFUsPLLc6wGHq64zuE5cd8
-JUXovB9qziSXtBF9lBCeSvtl36U+m4vq0gwU0=
------END OPENSSH PRIVATE KEY-----
-```
+- **Value**: Copy your SSH private key content here
 - **Purpose**: Private SSH key for authentication
+
+**⚠️ SECURITY WARNING: Never commit actual private keys to git repositories!**
+**Generate a deployment-specific SSH key and add it directly as a GitHub secret.**
+
+To generate a new deployment key:
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -C "github-actions-orlandopunx"
+# Add the public key (~/.ssh/deploy_key.pub) to your server's authorized_keys
+# Add the private key (~/.ssh/deploy_key) content as the GitHub secret
+```
 
 #### SECRET 4: `SERVER_PORT`
 - **Name**: `SERVER_PORT`
