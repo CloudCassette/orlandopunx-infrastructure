@@ -71,20 +71,19 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     needs: deploy
-    if: always()
+    if: always() && secrets.SLACK_WEBHOOK_URL != ''
     name: 📢 Notify Deployment Status
     
     steps:
     - name: 📧 Send Status Notification
-      if: always()
       uses: 8398a7/action-slack@v3
       with:
-        status: ${{ job.status }}
+        status: ${{ needs.deploy.result }}
         text: |
-          🎸 OrlandoPunx.com Deployment ${{ job.status }}
+          🎸 OrlandoPunx.com Deployment ${{ needs.deploy.result }}
           Repository: ${{ github.repository }}
           Commit: ${{ github.sha }}
           Author: ${{ github.actor }}
           Message: ${{ github.event.head_commit.message }}
       env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # Optional
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
