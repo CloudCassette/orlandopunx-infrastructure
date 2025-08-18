@@ -1,22 +1,109 @@
 #!/usr/bin/env python3
 """
-Enhanced Will's Pub to Gancio Sync
-- Scrapes events and downloads flyers
-- Posts summary to Discord for easy review
-- Smart duplicate detection
+Enhanced Will's Pub Scraper with Discord and Gancio Integration
+Automatically downloads flyers and posts rich summaries to Discord and orlandopunx.com
 """
 
 import requests
-import json
-import sys
-import os
-from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+import json
+import os
 import re
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 import hashlib
+from datetime import datetime
 
-import getpass
+class EnhancedWillsPubSync:
+    def __init__(self, discord_webhook_url=None):
+        self.willspub_url = "https://willspub.org"
+        self.discord_webhook = discord_webhook_url
+        self.session = requests.Session()
+        
+        # Set proper headers to avoid being blocked
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        })
+        
+        # Create directories for flyers
+        os.makedirs('flyers', exist_ok=True)
+        os.makedirs('../../backups/willspub-flyers', exist_ok=True)
+        
+    def authenticate_gancio(self, gancio_url):
+        """Authenticate with Gancio using environment variables"""
+        self.gancio_base_url = gancio_url.rstrip('/')
+        self.gancio_authenticated = False
+        
+        gancio_email = os.environ.get('GANCIO_EMAIL')
+        gancio_password = os.environ.get('GANCIO_PASSWORD')
+        
+        if not gancio_email or not gancio_password:
+            print("⚠️  No Gancio credentials - skipping website integration")
+            return False
+        
+        try:
+            login_data = {'email': gancio_email, 'password': gancio_password}
+            response = self.session.post(f"{self.gancio_base_url}/login", data=login_data)
+            
+            if response.status_code == 200:
+                print("✅ Gancio authentication successful!")
+                self.gancio_authenticated = True
+                return True
+            else:
+                print(f"❌ Gancio auth failed: {response.status_code}")
+                return False
+        except Exception as e:
+            print(f"❌ Gancio auth error: {e}")
+            return False
+    
+    def add_event_to_gancio(self, event):
+        """Add event to Gancio"""
+        if not getattr(self, 'gancio_authenticated', False):
+            return False
+            
+        try:
+            event_date = event.get('date', '')
+            event_time = event.get('time', '19:00')
+            
+            if event_date:
+                date_obj = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
+                start_timestamp = int(date_obj.timestamp()) * 1000
+                end_timestamp = start_timestamp + (3 * 3600 * 1000)
+            else:
+                return False
+            
+            gancio_event = {
+                "title": event.get('title', ''),
+                "description": event.get('description', '') + f"\n\nMore info: {event.get('url', '')}",
+                "start_datetime": start_timestamp,
+                "end_datetime": end_timestamp,
+                "place_id": 1,
+                "tags": ["live-music", "willspub"],
+                "recurrent": False,
+                "online": False
+            }
+            
+            response = self.session.post(
+                f"{self.gancio_base_url}/add",
+                json=gancio_event,
+                headers={'Content-Type': 'application/json'}
+            )
+            
+            if response.status_code in [200, 201]:
+                print(f"   ✅ Added to website: {event.get('title', 'Unknown')}")
+                return True
+            else:
+                print(f"   ❌ Failed to add: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"   ❌ Error: {e}")
+            return False
+
 from datetime import datetime, timedelta
 
 class EnhancedWillsPubSync:
@@ -122,78 +209,6 @@ class EnhancedWillsPubSync:
                 
         except Exception as e:
             print(f"   ❌ Error adding to Gancio: {e}")
-            return False
-
-
-    def authenticate_gancio(self, gancio_url):
-        """Authenticate with Gancio using environment variables"""
-        self.gancio_base_url = gancio_url.rstrip('/')
-        self.gancio_authenticated = False
-        
-        gancio_email = os.environ.get('GANCIO_EMAIL')
-        gancio_password = os.environ.get('GANCIO_PASSWORD')
-        
-        if not gancio_email or not gancio_password:
-            print("⚠️  No Gancio credentials - skipping website integration")
-            return False
-        
-        try:
-            login_data = {'email': gancio_email, 'password': gancio_password}
-            response = self.session.post(f"{self.gancio_base_url}/login", data=login_data)
-            
-            if response.status_code == 200:
-                print("✅ Gancio authentication successful!")
-                self.gancio_authenticated = True
-                return True
-            else:
-                print(f"❌ Gancio auth failed: {response.status_code}")
-                return False
-        except Exception as e:
-            print(f"❌ Gancio auth error: {e}")
-            return False
-    
-    def add_event_to_gancio(self, event):
-        """Add event to Gancio"""
-        if not getattr(self, 'gancio_authenticated', False):
-            return False
-            
-        try:
-            event_date = event.get('date', '')
-            event_time = event.get('time', '19:00')
-            
-            if event_date:
-                date_obj = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
-                start_timestamp = int(date_obj.timestamp()) * 1000
-                end_timestamp = start_timestamp + (3 * 3600 * 1000)
-            else:
-                return False
-            
-            gancio_event = {
-                "title": event.get('title', ''),
-                "description": event.get('description', '') + f"\n\nMore info: {event.get('url', '')}",
-                "start_datetime": start_timestamp,
-                "end_datetime": end_timestamp,
-                "place_id": 1,
-                "tags": ["live-music", "willspub"],
-                "recurrent": False,
-                "online": False
-            }
-            
-            response = self.session.post(
-                f"{self.gancio_base_url}/add",
-                json=gancio_event,
-                headers={'Content-Type': 'application/json'}
-            )
-            
-            if response.status_code in [200, 201]:
-                print(f"   ✅ Added to website: {event.get('title', 'Unknown')}")
-                return True
-            else:
-                print(f"   ❌ Failed to add: {response.status_code}")
-                return False
-                
-        except Exception as e:
-            print(f"   ❌ Error: {e}")
             return False
 
     def download_flyer(self, event_url, event_title):
@@ -392,20 +407,6 @@ class EnhancedWillsPubSync:
             response = requests.post(self.discord_webhook, json=payload)
             if response.status_code == 204:
                 print("✅ Posted summary to Discord")
-        
-        # Add events to Gancio if authenticated
-        if getattr(self, 'gancio_authenticated', False) and unique_events:
-            print("🌐 Adding events to orlandopunx.com...")
-            gancio_added = 0
-            for event in unique_events:
-                if self.add_event_to_gancio(event):
-                    gancio_added += 1
-            
-            if gancio_added > 0:
-                summary_lines.append(f"🌐 Added {gancio_added} events to orlandopunx.com")
-                print(f"✅ Added {gancio_added} events to orlandopunx.com")
-            else:
-                print("⚠️  No events were added to orlandopunx.com")
             else:
                 print(f"⚠️ Discord post failed: {response.status_code}")
                 
