@@ -1,4 +1,4 @@
-name: 🎸 Sync Will's Pub Events
+name: 🎸 Multi-Venue Orlando Events Sync
 
 on:
   schedule:
@@ -8,13 +8,13 @@ on:
 jobs:
   sync-events:
     runs-on: self-hosted
-    name: 📅 Sync Events from Will's Pub
+    name: 🎵 Sync Events from Orlando Venues
     
     steps:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
       
-    - name: 🎯 Enhanced Event Scraping & Discord Integration
+    - name: 🎯 Multi-Venue Event Scraping & Discord Integration
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: |
@@ -23,11 +23,12 @@ jobs:
         # Activate virtual environment
         source venv/bin/activate
         
-        # Run the enhanced scraper
-        echo "🎸 Running enhanced Will's Pub scraper..."
-        python3 enhanced_willspub_sync.py
+        # Run the multi-venue scraper
+        echo "🎸 Running multi-venue Orlando event scraper..."
+        echo "Venues: Will's Pub + Stardust Coffee & Video"
+        python3 enhanced_multi_venue_sync.py
         
-        echo "✅ Discord integration completed"
+        echo "✅ Multi-venue Discord integration completed"
         
     - name: 🌐 Website Integration (orlandopunx.com)
       env:
@@ -40,18 +41,18 @@ jobs:
         if [ -n "$GANCIO_EMAIL" ] && [ -n "$GANCIO_PASSWORD" ]; then
           echo "🌐 Adding events to orlandopunx.com..."
           
-          # Create a simple Gancio integration script
+          # Create Gancio integration script for combined events
           cat > gancio_integration.py << 'PYEOF'
 import json
 import requests
 import os
 from datetime import datetime
 
-# Load the scraped events
+# Load the combined events
 try:
-    with open('willspub_events.json', 'r') as f:
+    with open('combined_events.json', 'r') as f:
         events = json.load(f)
-    print(f"📋 Found {len(events)} events to process")
+    print(f"📋 Found {len(events)} events to process from both venues")
 except:
     print("❌ No events file found")
     exit(1)
@@ -77,12 +78,16 @@ except Exception as e:
     print(f"❌ Auth error: {e}")
     exit(1)
 
-# Add events
+# Add events from both venues
 added_count = 0
+willspub_count = 0
+stardust_count = 0
+
 for event in events:
     try:
         event_date = event.get('date', '')
         event_time = event.get('time', '19:00')
+        venue_source = event.get('source', 'unknown')
         
         if event_date:
             date_obj = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
@@ -91,13 +96,20 @@ for event in events:
         else:
             continue
         
+        # Add venue-specific tags
+        venue_tags = ["live-music"]
+        if venue_source == 'willspub':
+            venue_tags.extend(["willspub", "punk", "rock"])
+        elif venue_source == 'stardust':
+            venue_tags.extend(["stardust", "coffee", "acoustic"])
+        
         gancio_event = {
             "title": event.get('title', ''),
-            "description": event.get('description', '') + f"\n\nMore info: {event.get('url', '')}",
+            "description": event.get('description', '') + f"\n\nVenue: {event.get('venue', '')}\nMore info: {event.get('url', '')}",
             "start_datetime": start_timestamp,
             "end_datetime": end_timestamp,
             "place_id": 1,
-            "tags": ["live-music", "willspub"],
+            "tags": venue_tags,
             "recurrent": False,
             "online": False
         }
@@ -109,15 +121,21 @@ for event in events:
         )
         
         if response.status_code in [200, 201]:
-            print(f"   ✅ Added: {event.get('title', 'Unknown')}")
+            print(f"   ✅ Added: {event.get('title', 'Unknown')} ({event.get('venue', 'Unknown venue')})")
             added_count += 1
+            if venue_source == 'willspub':
+                willspub_count += 1
+            elif venue_source == 'stardust':
+                stardust_count += 1
         else:
             print(f"   ⚠️  Skipped: {event.get('title', 'Unknown')} ({response.status_code})")
             
     except Exception as e:
         print(f"   ❌ Error with {event.get('title', 'Unknown')}: {e}")
 
-print(f"🌐 Added {added_count} events to orlandopunx.com")
+print(f"🌐 Added {added_count} events to orlandopunx.com:")
+print(f"   🎸 Will's Pub: {willspub_count}")
+print(f"   🌟 Stardust: {stardust_count}")
 PYEOF
 
           python3 gancio_integration.py
@@ -132,24 +150,27 @@ PYEOF
         cd scripts/event-sync
         
         echo ""
-        echo "📊 Final Results:"
-        echo "==============="
+        echo "📊 Final Multi-Venue Results:"
+        echo "============================="
         if [ -f sync_summary.txt ]; then
           cat sync_summary.txt
         fi
         
         echo ""
         echo "🖼️ Flyers Downloaded:"
-        ls -la flyers/ | wc -l
-        echo "$(ls flyers/ 2>/dev/null | wc -l) flyer files"
+        flyer_count=$(ls flyers/ 2>/dev/null | wc -l)
+        echo "$flyer_count flyer files"
         
         # Archive results
-        mkdir -p ../../backups/willspub-events
-        cp willspub_events.* ../../backups/willspub-events/willspub_events_$(date +%Y%m%d_%H%M).* 2>/dev/null || true
+        mkdir -p ../../backups/orlando-events
+        cp combined_events.json ../../backups/orlando-events/events_$(date +%Y%m%d_%H%M).json 2>/dev/null || true
+        cp willspub_events.json ../../backups/orlando-events/willspub_$(date +%Y%m%d_%H%M).json 2>/dev/null || true
+        cp stardust_events.json ../../backups/orlando-events/stardust_$(date +%Y%m%d_%H%M).json 2>/dev/null || true
         
         if [ -d flyers ] && [ "$(ls -A flyers)" ]; then
-          mkdir -p ../../backups/willspub-flyers  
-          cp -r flyers ../../backups/willspub-flyers/flyers_$(date +%Y%m%d_%H%M)/ 2>/dev/null || true
+          mkdir -p ../../backups/orlando-flyers  
+          cp -r flyers ../../backups/orlando-flyers/flyers_$(date +%Y%m%d_%H%M)/ 2>/dev/null || true
         fi
         
-        echo "✅ Complete automation pipeline finished!"
+        echo "✅ Complete multi-venue automation pipeline finished!"
+        echo "🎸 Will's Pub + 🌟 Stardust = 🎵 Full Orlando coverage"
