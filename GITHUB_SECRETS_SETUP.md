@@ -126,3 +126,30 @@ Once working, you'll see:
 ---
 
 *For help with this setup, check the deployment logs in GitHub Actions or run `./scripts/deploy-changes.sh` manually on the server.*
+
+### Optional: Discord Notifications
+
+To get deployment notifications in Discord:
+
+#### SECRET 5: `DISCORD_WEBHOOK_URL` (Optional)
+- **Name**: `DISCORD_WEBHOOK_URL`
+- **Value**: Your Discord webhook URL
+- **Purpose**: Send deployment notifications to Discord
+
+**To set up Discord webhook:**
+1. In your Discord server, go to **Server Settings** → **Integrations** → **Webhooks**
+2. Click **New Webhook** or **Create Webhook**
+3. Give it a name like "OrlandoPunx Deployments"
+4. Choose the channel where you want notifications
+5. Copy the **Webhook URL** and add it as the GitHub secret
+
+**Example notification format:**
+```
+🎸 OrlandoPunx.com Deployment
+✅ Status: Success
+📝 Commit: Fix styling issues
+👤 Author: CloudCassette
+🔗 View Action Run
+```
+
+If you don't set up this secret, deployments will still work perfectly - you just won't get Discord notifications.
