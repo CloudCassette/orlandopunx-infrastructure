@@ -1,99 +1,19 @@
-Will's Pub Sync Summary - 2025-08-18 10:43:26.532085
-==================================================
-Total events scraped: 20
-New events found: 18
-Duplicates filtered: 2
-Flyers downloaded: 20
+Multi-Venue Sync Summary
+========================
+Timestamp: 2025-08-18 11:24:39
 
-NEW EVENTS TO REVIEW:
-------------------------------
-1. Kaleigh Baker
-   Date: 2025-08-18
-   URL: https://willspub.org/tm-event/kaleigh-baker-7/
-   Flyer: flyers/Kaleigh_Baker_5431b639.jpg
+Will's Pub Events: 20
+Stardust Events: 7
+Total Events: 27
 
-2. Indie 900 Jam
-   Date: 2025-08-19
-   URL: https://willspub.org/tm-event/indie-900-jam-4/
-   Flyer: flyers/Indie_900_Jam_ae3eac66.jpg
-
-3. Hard Swingin' Country Soiree with Decker & Dimitrov
-   Date: 2025-08-20
-   URL: https://willspub.org/tm-event/hard-swingin-country-soiree-with-decker-dimitrov-3/
-   Flyer: flyers/Hard_Swingin_Country_Soiree_with_Decker_Dimitrov_d5866b07.jpg
-
-4. Official Unofficial &quot;Best Of&quot; Orlando Weekly Party and Award Pick-Up
-   Date: 2025-08-20
-   URL: https://willspub.org/tm-event/official-unofficial-best-of-orlando-weekly-party-and-award-pick-up/
-   Flyer: flyers/Official_Unofficial_quotBest_Ofquot_Orlando_Weekly_d9b8b8d3.jpg
-
-5. Nesto's Jazz Trio
-   Date: 2025-08-20
-   URL: https://willspub.org/tm-event/nestos-jazz-trio-3/
-   Flyer: flyers/Nestos_Jazz_Trio_3bd68637.jpg
-
-6. Thursday Thinks Trivia
-   Date: 2025-08-21
-   URL: https://willspub.org/tm-event/thursday-thinks-trivia-7/
-   Flyer: flyers/Thursday_Thinks_Trivia_a1743838.jpg
-
-7. Baron Von Yeti
-   Date: 2025-08-21
-   URL: https://willspub.org/tm-event/baron-von-yeti-7/
-   Flyer: flyers/Baron_Von_Yeti_e3edf13d.jpg
-
-8. Alphabet Aces
-   Date: 2025-08-22
-   URL: https://willspub.org/tm-event/alphabet-aces/
-   Flyer: flyers/Alphabet_Aces_5aec5297.jpg
-
-9. DJ BMF
-   Date: 2025-08-22
-   URL: https://willspub.org/tm-event/dj-bmf-9/
-   Flyer: flyers/DJ_BMF_18069e5e.jpg
-
-10. Hannah Stokes Band
-   Date: 2025-08-23
-   URL: https://willspub.org/tm-event/hannah-stokes-band/
-   Flyer: flyers/Hannah_Stokes_Band_a9fd8899.jpg
-
-11. Raspberry Pie - Pop City Album Release Show with Discord Theory
-   Date: 2025-08-23
-   URL: https://willspub.org/tm-event/raspberry-pie-pop-city-album-release-show/
-   Flyer: flyers/Raspberry_Pie_-_Pop_City_Album_Release_Show_with_D_cdc734e1.jpg
-
-12. iliedtomyself with Holyfield, Sally Wants, and Stella
-   Date: 2025-08-24
-   URL: https://willspub.org/tm-event/iliedtomyself-with-holyfield-sally-wants-and-stella/
-   Flyer: flyers/iliedtomyself_with_Holyfield_Sally_Wants_and_Stell_5b9112ea.jpg
-
-13. Jayo
-   Date: 2025-08-24
-   URL: https://willspub.org/tm-event/jayo-7/
-   Flyer: flyers/Jayo_6f7e9dd6.jpg
-
-14. Kaleigh Baker
-   Date: 2025-08-25
-   URL: https://willspub.org/tm-event/kaleigh-baker-8/
-   Flyer: flyers/Kaleigh_Baker_5431b639.jpg
-
-15. FREE SHOW!!! EJ Birthday Bash featuring CHRMNG, DJ SET + *A Secret Set*
-   Date: 2025-08-25
-   URL: https://willspub.org/tm-event/free-show-ej-birthday-bash-featuring-chrmng-dj-set-a-secret-set/
-   Flyer: flyers/FREE_SHOW_EJ_Birthday_Bash_featuring_CHRMNG_DJ_SET_e6dadb59.jpg
-
-16. Indie 900 Jam
-   Date: 2025-08-26
-   URL: https://willspub.org/tm-event/indie-900-jam-5/
-   Flyer: flyers/Indie_900_Jam_ae3eac66.jpg
-
-17. Hard Swingin' Country Soiree with Decker & Dimitrov
-   Date: 2025-08-27
-   URL: https://willspub.org/tm-event/hard-swingin-country-soiree-with-decker-dimitrov-4/
-   Flyer: flyers/Hard_Swingin_Country_Soiree_with_Decker_Dimitrov_d5866b07.jpg
-
-18. Sky Navy, Saucers Over Washington, No Clue, & Home and Away
-   Date: 2025-08-27
-   URL: https://willspub.org/tm-event/sky-navy-stella-no-clue-home-and-away/
-   Flyer: flyers/Sky_Navy_Saucers_Over_Washington_No_Clue_Home_and_f865153a.jpg
-
+Recent Events:
+- Audubon Park Community Market (Stardust Coffee & Video) - 2025-08-18 17:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Buy Tickets (Will's Pub) - 2025-08-19 19:00

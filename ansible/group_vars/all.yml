@@ -35,3 +35,13 @@ infrastructure_repo_path: "{{ home_directory }}/orlandopunx-infrastructure"
 docker_root_dir: "/media/Steam Dock/docker_data"
 docker_volumes_path: "{{ docker_root_dir }}/volumes"
 docker_daemon_config_path: "/etc/docker/daemon.json"
+
+# Portainer configuration
+portainer_image: "portainer/portainer-ce:latest"
+portainer_http_port: 8000
+portainer_https_port: 9443
+portainer_volume_name: portainer_data
+
+# Repository integration
+homelab_terraform_repo: "https://github.com/CloudCassette/homelab"
+homelab_local_path: "{{ home_directory }}/homelab"

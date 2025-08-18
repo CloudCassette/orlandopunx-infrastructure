@@ -1,0 +1,277 @@
+[
+    {
+        "Id": "99b9c19832a6b4d0d8d241925dc15a13d5b2a2920847ee9698c91b7d444a4fe3",
+        "Created": "2025-07-27T14:57:02.372964408Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "node",
+            "current/index.js"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 1573,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2025-08-12T16:28:37.725828978Z",
+            "FinishedAt": "2025-08-12T16:28:30.35943188Z"
+        },
+        "Image": "sha256:c1dc601fbf6c81b651dc3868b0d55b698d7678701e77c7750ef50c4b739073d3",
+        "ResolvConfPath": "/media/Steam Dock/docker_data/containers/99b9c19832a6b4d0d8d241925dc15a13d5b2a2920847ee9698c91b7d444a4fe3/resolv.conf",
+        "HostnamePath": "/media/Steam Dock/docker_data/containers/99b9c19832a6b4d0d8d241925dc15a13d5b2a2920847ee9698c91b7d444a4fe3/hostname",
+        "HostsPath": "/media/Steam Dock/docker_data/containers/99b9c19832a6b4d0d8d241925dc15a13d5b2a2920847ee9698c91b7d444a4fe3/hosts",
+        "LogPath": "/media/Steam Dock/docker_data/containers/99b9c19832a6b4d0d8d241925dc15a13d5b2a2920847ee9698c91b7d444a4fe3/99b9c19832a6b4d0d8d241925dc15a13d5b2a2920847ee9698c91b7d444a4fe3-json.log",
+        "Name": "/cloudcassette-blog",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "cloudcassette_ghost_content:/var/lib/ghost/content:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "cloudcassette_default",
+            "PortBindings": {
+                "2368/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "2368"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": [],
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap",
+                "/sys/devices/system/cpu/cpu0/thermal_throttle",
+                "/sys/devices/system/cpu/cpu1/thermal_throttle",
+                "/sys/devices/system/cpu/cpu2/thermal_throttle",
+                "/sys/devices/system/cpu/cpu3/thermal_throttle"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "99b9c19832a6b4d0d8d241925dc15a13d5b2a2920847ee9698c91b7d444a4fe3",
+                "LowerDir": "/media/Steam Dock/docker_data/overlay2/4a611d42e08b996e569be87cb178d962254a53cfe6d1a6b463ec624c2cfc1b6f-init/diff:/media/Steam Dock/docker_data/overlay2/800749e03b82d2217763759e56758ea92b57badc8a47c9fdf158dcb24c2c44f6/diff:/media/Steam Dock/docker_data/overlay2/e53892da3fde2f1beb3c73018bf45167fa6cfaf70bf180fb49c0d493afbea6cb/diff:/media/Steam Dock/docker_data/overlay2/2bfdd385aeda9ba3df58775a8b7887d705319a65fe95ed21b23161bc3c4e8fa1/diff:/media/Steam Dock/docker_data/overlay2/d8f4ccf473f8799373415a4039906308063a901f69b83a0f8e51422542ea200e/diff:/media/Steam Dock/docker_data/overlay2/5aa68f6d70c244c0cb47a1819cc46a44d811b313286484416d972275dec4deb3/diff:/media/Steam Dock/docker_data/overlay2/a055a53beb48ca0587d81d70060ff01ac6a7b9255516db12df93de9b36bf9537/diff:/media/Steam Dock/docker_data/overlay2/84ea68502ddc91b980f4880ce47636ae0ace2d8e7ccc03deec5d234436255391/diff:/media/Steam Dock/docker_data/overlay2/b3c6e65d33187fde3e8c82141ad409f8354f540a3941bbd416fb2dde78223388/diff:/media/Steam Dock/docker_data/overlay2/06039c4a05c824ffebf87825fd913bb375b4089e5fee0af85f62b48fc5b2dc9c/diff:/media/Steam Dock/docker_data/overlay2/6536299b501ea72ca56fae158d105b5243a7fcf2706c380c7948d6b3b30c5a94/diff",
+                "MergedDir": "/media/Steam Dock/docker_data/overlay2/4a611d42e08b996e569be87cb178d962254a53cfe6d1a6b463ec624c2cfc1b6f/merged",
+                "UpperDir": "/media/Steam Dock/docker_data/overlay2/4a611d42e08b996e569be87cb178d962254a53cfe6d1a6b463ec624c2cfc1b6f/diff",
+                "WorkDir": "/media/Steam Dock/docker_data/overlay2/4a611d42e08b996e569be87cb178d962254a53cfe6d1a6b463ec624c2cfc1b6f/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "cloudcassette_ghost_content",
+                "Source": "/media/Steam Dock/docker_data/volumes/cloudcassette_ghost_content/_data",
+                "Destination": "/var/lib/ghost/content",
+                "Driver": "local",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+        "Config": {
+            "Hostname": "99b9c19832a6",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "ExposedPorts": {
+                "2368/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "database__client=mysql",
+                "database__connection__host=cloudcassette-db",
+                "database__connection__user=ghost",
+                "database__connection__password=ghostpassword",
+                "database__connection__database=ghost",
+                "url=http://192.168.86.4:2368",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=20.19.4",
+                "YARN_VERSION=1.22.22",
+                "GOSU_VERSION=1.17",
+                "NODE_ENV=production",
+                "GHOST_CLI_VERSION=1.27.1",
+                "GHOST_INSTALL=/var/lib/ghost",
+                "GHOST_CONTENT=/var/lib/ghost/content",
+                "GHOST_VERSION=5.130.2"
+            ],
+            "Cmd": [
+                "node",
+                "current/index.js"
+            ],
+            "Image": "ghost:latest",
+            "Volumes": {
+                "/var/lib/ghost/content": {}
+            },
+            "WorkingDir": "/var/lib/ghost",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "com.docker.compose.config-hash": "361107da252506ed146165a3c89db7478b4d7ce5c640b7bca3dc4a1961a4d9e6",
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.depends_on": "cloudcassette-db:service_started:false",
+                "com.docker.compose.image": "sha256:c1dc601fbf6c81b651dc3868b0d55b698d7678701e77c7750ef50c4b739073d3",
+                "com.docker.compose.oneoff": "False",
+                "com.docker.compose.project": "cloudcassette",
+                "com.docker.compose.project.config_files": "/home/cloudcassette/final_modern_ghost.yaml",
+                "com.docker.compose.project.working_dir": "/home/cloudcassette",
+                "com.docker.compose.service": "cloudcassette-ghost",
+                "com.docker.compose.version": "2.38.2"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "e0afbe34fd3b565aaafdea56ba33a38d82014af131ba1a1b9bb9152dd30645e1",
+            "SandboxKey": "/var/run/docker/netns/e0afbe34fd3b",
+            "Ports": {
+                "2368/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "2368"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "2368"
+                    }
+                ]
+            },
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "cloudcassette_default": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "cloudcassette-blog",
+                        "cloudcassette-ghost"
+                    ],
+                    "MacAddress": "42:50:7e:1e:3f:41",
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "dce07093f6547c2ddbcefbd37ec9d2b0fd37d73e744c226c679da4a5f36cc724",
+                    "EndpointID": "1195be81c058e8b5f3ce47c75dd5bc1dde75323ae1a1db2aefd767d6ffebd60d",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "cloudcassette-blog",
+                        "cloudcassette-ghost",
+                        "99b9c19832a6"
+                    ]
+                }
+            }
+        }
+    }
+]

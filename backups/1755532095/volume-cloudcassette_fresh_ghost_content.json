@@ -1,0 +1,16 @@
+[
+    {
+        "CreatedAt": "2025-07-27T10:46:58-04:00",
+        "Driver": "local",
+        "Labels": {
+            "com.docker.compose.config-hash": "8056a057596e21f887466121bebf4010c79764d6ee595dc5307d026daeb2990d",
+            "com.docker.compose.project": "cloudcassette",
+            "com.docker.compose.version": "2.38.2",
+            "com.docker.compose.volume": "fresh_ghost_content"
+        },
+        "Mountpoint": "/media/Steam Dock/docker_data/volumes/cloudcassette_fresh_ghost_content/_data",
+        "Name": "cloudcassette_fresh_ghost_content",
+        "Options": null,
+        "Scope": "local"
+    }
+]

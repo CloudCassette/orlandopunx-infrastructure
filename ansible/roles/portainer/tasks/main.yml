@@ -1,0 +1,67 @@
+---
+- name: Create Portainer data volume
+  community.docker.docker_volume:
+    name: portainer_data
+    state: present
+
+- name: Deploy Portainer container
+  community.docker.docker_container:
+    name: portainer
+    image: portainer/portainer-ce:latest
+    restart_policy: unless-stopped
+    ports:
+      - "8000:8000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    state: started
+
+- name: Wait for Portainer to be ready
+  uri:
+    url: "https://localhost:9443"
+    method: GET
+    status_code: 200
+    validate_certs: no
+  register: portainer_health_check
+  until: portainer_health_check.status == 200
+  retries: 30
+  delay: 5
+  ignore_errors: yes
+
+- name: Copy Portainer templates to server
+  copy:
+    src: "{{ home_directory }}/portainer-templates/"
+    dest: "{{ infrastructure_repo_path }}/portainer-templates/"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0644'
+    remote_src: yes
+  ignore_errors: yes
+
+- name: Create Portainer configuration documentation
+  copy:
+    content: |
+      # Portainer Configuration
+      
+      ## Access URLs
+      - HTTP: http://{{ ansible_default_ipv4.address }}:8000
+      - HTTPS: https://{{ ansible_default_ipv4.address }}:9443
+      
+      ## Container Details
+      - Image: portainer/portainer-ce:latest
+      - Volume: portainer_data ({{ docker_root_dir }}/volumes/portainer_data/_data)
+      - Docker Socket: /var/run/docker.sock
+      
+      ## Templates
+      - Location: {{ infrastructure_repo_path }}/portainer-templates/
+      - Custom templates available for Ghost, Gancio, and other services
+      
+      ## Integration with Ansible
+      - Portainer manages runtime container operations
+      - Ansible handles infrastructure configuration
+      - Templates provide quick deployment options
+    dest: "{{ infrastructure_repo_path }}/docs/PORTAINER.md"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0644'

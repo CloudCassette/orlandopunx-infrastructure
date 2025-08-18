@@ -7,6 +7,7 @@
   roles:
     - common
     - docker
+    - portainer
     - postgresql
     - nginx
     - ssl
@@ -17,6 +18,16 @@
     - name: Ensure server is properly configured
       debug:
         msg: "Infrastructure deployment complete for {{ inventory_hostname }}"
+        
+    - name: Display service URLs
+      debug:
+        msg: |
+          🎸 Orlando Punx Services:
+          - Main Site: https://orlandopunx.com (Gancio)
+          - Blog: http://{{ ansible_default_ipv4.address }}:2368 (Ghost)
+          - Portainer: https://{{ ansible_default_ipv4.address }}:9443
+          
+          🔄 Ready for orlandogirlsrockcamp.com restoration!
         
 - name: Configure Web Services
   hosts: webservers

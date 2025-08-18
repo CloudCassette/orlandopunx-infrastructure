@@ -1,0 +1,16 @@
+[
+    {
+        "CreatedAt": "2025-07-27T10:57:02-04:00",
+        "Driver": "local",
+        "Labels": {
+            "com.docker.compose.config-hash": "bf907dad336497119c2fe264405fa6b4b5320c13228c8d25b0bbb2e6dfc46c41",
+            "com.docker.compose.project": "cloudcassette",
+            "com.docker.compose.version": "2.38.2",
+            "com.docker.compose.volume": "ghost_mysql"
+        },
+        "Mountpoint": "/media/Steam Dock/docker_data/volumes/cloudcassette_ghost_mysql/_data",
+        "Name": "cloudcassette_ghost_mysql",
+        "Options": null,
+        "Scope": "local"
+    }
+]

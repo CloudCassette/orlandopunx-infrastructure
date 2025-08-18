@@ -16,9 +16,6 @@ import re
 from urllib.parse import urljoin, urlparse
 import hashlib
 
-import getpass
-from datetime import datetime, timedelta
-
 class EnhancedWillsPubSync:
     def __init__(self, discord_webhook_url=None):
         self.willspub_url = "https://willspub.org"
@@ -36,94 +33,6 @@ class EnhancedWillsPubSync:
         os.makedirs('flyers', exist_ok=True)
         os.makedirs('../../backups/willspub-flyers', exist_ok=True)
         
-    def authenticate_gancio(self, gancio_url, email=None, password=None):
-        """Authenticate with Gancio using environment variables or parameters"""
-        self.gancio_base_url = gancio_url.rstrip('/')
-        self.gancio_authenticated = False
-        
-        # Get credentials from environment or parameters
-        gancio_email = email or os.environ.get('GANCIO_EMAIL')
-        gancio_password = password or os.environ.get('GANCIO_PASSWORD')
-        
-        if not gancio_email or not gancio_password:
-            print("⚠️  No Gancio credentials provided - skipping website updates")
-            return False
-        
-        try:
-            login_data = {
-                'email': gancio_email,
-                'password': gancio_password
-            }
-            
-            response = self.session.post(f"{self.gancio_base_url}/login", data=login_data, allow_redirects=True)
-            
-            if response.status_code == 200:
-                print("✅ Gancio authentication successful!")
-                self.gancio_authenticated = True
-                return True
-            else:
-                print(f"❌ Gancio authentication failed: {response.status_code}")
-                return False
-                
-        except Exception as e:
-            print(f"❌ Gancio authentication error: {e}")
-            return False
-
-    def add_event_to_gancio(self, event):
-        """Add a single event to Gancio"""
-        if not hasattr(self, 'gancio_authenticated') or not self.gancio_authenticated:
-            return False
-            
-        try:
-            # Convert date string to timestamp
-            event_date = event.get('date', '')
-            event_time = event.get('time', '19:00')
-            
-            # Parse the date
-            if event_date:
-                # Assuming format is YYYY-MM-DD
-                date_obj = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
-                start_timestamp = int(date_obj.timestamp()) * 1000  # Gancio uses milliseconds
-                end_timestamp = start_timestamp + (3 * 3600 * 1000)  # 3 hours later
-            else:
-                print(f"   ❌ No date for event: {event.get('title', 'Unknown')}")
-                return False
-            
-            # Prepare event data for Gancio
-            gancio_event = {
-                "title": event.get('title', ''),
-                "description": event.get('description', ''),
-                "start_datetime": start_timestamp,
-                "end_datetime": end_timestamp,
-                "place_id": 1,  # Will's Pub place ID
-                "tags": ["live-music", "willspub"],
-                "recurrent": False,
-                "online": False
-            }
-            
-            # Add source URL to description
-            if event.get('url'):
-                gancio_event['description'] += f"\n\nMore info: {event['url']}"
-            
-            print(f"   📤 Adding to Gancio: {event.get('title', 'Unknown')}")
-            
-            response = self.session.post(
-                f"{self.gancio_base_url}/add",
-                data=json.dumps(gancio_event),
-                headers={'Content-Type': 'application/json'}
-            )
-            
-            if response.status_code in [200, 201]:
-                print(f"   ✅ Added to Gancio: {event.get('title', 'Unknown')}")
-                return True
-            else:
-                print(f"   ❌ Failed to add to Gancio: {response.status_code}")
-                return False
-                
-        except Exception as e:
-            print(f"   ❌ Error adding to Gancio: {e}")
-            return False
-
     def download_flyer(self, event_url, event_title):
         """Download show flyer from event page"""
         try:
@@ -133,47 +42,29 @@ class EnhancedWillsPubSync:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Look for event images - prioritize Open Graph meta tags
+            # Look for event images
             flyer_urls = []
             
-            # First, check Open Graph meta tags (most reliable for event flyers)
-            og_image = soup.find('meta', property='og:image')
-            if og_image and og_image.get('content'):
-                og_url = og_image.get('content')
-                # Skip default Will's Pub logo
-                if 'wills-pub-logo' not in og_url.lower():
-                    flyer_urls.append(og_url)
-                    print(f"📸 Found OG image: {og_url}")
+            # Check for featured images
+            for img in soup.find_all('img'):
+                src = img.get('src', '')
+                alt = img.get('alt', '').lower()
+                
+                # Look for event flyers (usually larger images)
+                if any(keyword in src.lower() for keyword in ['event', 'show', 'flyer', 'poster']):
+                    flyer_urls.append(urljoin(event_url, src))
+                elif any(keyword in alt for keyword in ['flyer', 'poster', 'show']):
+                    flyer_urls.append(urljoin(event_url, src))
+                elif img.get('width') and int(img.get('width', 0)) > 400:  # Large images likely flyers
+                    flyer_urls.append(urljoin(event_url, src))
             
-            # If no OG image or it's the logo, check for other meta images
-            if not flyer_urls:
-                twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
-                if twitter_image and twitter_image.get('content'):
-                    twitter_url = twitter_image.get('content')
-                    if 'wills-pub-logo' not in twitter_url.lower():
-                        flyer_urls.append(twitter_url)
-                        print(f"📸 Found Twitter image: {twitter_url}")
-            
-            # Fallback: Look for large images in the page content
+            # If no specific flyers found, get the first large image
             if not flyer_urls:
                 for img in soup.find_all('img'):
                     src = img.get('src', '')
-                    alt = img.get('alt', '').lower()
-                    
-                    # Skip logos and small images
-                    if 'logo' in src.lower() or 'logo' in alt:
-                        continue
-                        
-                    # Look for event flyers (usually larger images)
-                    if any(keyword in src.lower() for keyword in ['event', 'show', 'flyer', 'poster']):
+                    if src and not src.startswith('data:'):
                         flyer_urls.append(urljoin(event_url, src))
-                    elif any(keyword in alt for keyword in ['flyer', 'poster', 'show']):
-                        flyer_urls.append(urljoin(event_url, src))
-                    elif img.get('width') and int(img.get('width', 0)) > 400:  # Large images likely flyers
-                        flyer_urls.append(urljoin(event_url, src))
-                
-                if flyer_urls:
-                    print(f"📸 Found fallback image: {flyer_urls[0]}")
+                        break
             
             # Download the first flyer found
             if flyer_urls:
@@ -386,39 +277,172 @@ if __name__ == "__main__":
     # Get Discord webhook from environment or command line
     discord_webhook = os.environ.get('DISCORD_WEBHOOK_URL')
     
-    # Get Gancio configuration
-    gancio_url = os.environ.get('GANCIO_URL', 'https://orlandopunx.com')
-    gancio_email = os.environ.get('GANCIO_EMAIL')
-    gancio_password = os.environ.get('GANCIO_PASSWORD')
-    
     syncer = EnhancedWillsPubSync(discord_webhook)
-    
-    # Authenticate with Gancio if credentials are provided
-    if gancio_email and gancio_password:
-        print("🌐 Connecting to Gancio...")
-        syncer.authenticate_gancio(gancio_url, gancio_email, gancio_password)
-    
     has_new_events = syncer.sync_events()
     
     if has_new_events:
         print("🎯 New events found! Check Discord for summary")
         sys.exit(0)
-    
-        
-        # Add new events to Gancio if authenticated
-        if hasattr(self, 'gancio_authenticated') and self.gancio_authenticated and unique_events:
-            print("🌐 Adding events to orlandopunx.com...")
-            gancio_added = 0
-            for event in unique_events:
-                if self.add_event_to_gancio(event):
-                    gancio_added += 1
-            
-            if gancio_added > 0:
-                summary_lines.append(f"🌐 Added {gancio_added} events to orlandopunx.com")
-                print(f"✅ Added {gancio_added} events to orlandopunx.com")
-            else:
-                print("⚠️  No events were added to orlandopunx.com")
-        
-        else:
+    else:
         print("ℹ️ No new events found")
         sys.exit(0)
+
+def scrape_stardust_events():
+    """Scrape events from Stardust Coffee & Video"""
+    print("🌟 Scraping Stardust Coffee & Video events...")
+    
+    url = "https://stardustvideoandcoffee.wordpress.com/events-2/"
+    
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        events = []
+        
+        # Find the upcoming events widget
+        upcoming_events = soup.find('ul', class_='upcoming-events')
+        
+        if not upcoming_events:
+            print("❌ Could not find upcoming events section")
+            return []
+        
+        # Parse each event
+        event_items = upcoming_events.find_all('li')
+        print(f"📋 Found {len(event_items)} potential events")
+        
+        for item in event_items:
+            try:
+                # Extract event title
+                title_elem = item.find('strong', class_='event-summary')
+                if not title_elem:
+                    continue
+                    
+                title = title_elem.get_text(strip=True)
+                
+                # Extract date/time
+                when_elem = item.find('span', class_='event-when')
+                if not when_elem:
+                    continue
+                    
+                when_text = when_elem.get_text(strip=True)
+                
+                # Parse the date/time format: "August 21, 2025 at 7:15 pm – 11:15 pm"
+                date_match = re.search(r'(\w+ \d+, \d+) at (\d+:\d+ [ap]m)', when_text)
+                if not date_match:
+                    print(f"⚠️  Could not parse date for: {title}")
+                    continue
+                
+                date_str = date_match.group(1)  # "August 21, 2025"
+                time_str = date_match.group(2)  # "7:15 pm"
+                
+                # Convert to standard format
+                try:
+                    event_datetime = datetime.strptime(f"{date_str} {time_str}", "%B %d, %Y %I:%M %p")
+                    event_date = event_datetime.strftime("%Y-%m-%d")
+                    event_time = event_datetime.strftime("%H:%M")
+                except ValueError as e:
+                    print(f"⚠️  Date parsing error for {title}: {e}")
+                    continue
+                
+                # Create event object
+                event = {
+                    'title': title,
+                    'date': event_date,
+                    'time': event_time,
+                    'venue': 'Stardust Coffee & Video',
+                    'venue_url': 'https://stardustvideoandcoffee.wordpress.com',
+                    'url': url,
+                    'description': f"Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+                    'when_text': when_text,
+                    'source': 'stardust',
+                    'flyer_url': '',  # Stardust doesn't seem to have flyers
+                    'flyer_file': ''
+                }
+                
+                events.append(event)
+                print(f"   ✅ {title} - {event_date} at {event_time}")
+                
+            except Exception as e:
+                print(f"   ❌ Error parsing event: {e}")
+                continue
+        
+        print(f"🌟 Successfully scraped {len(events)} Stardust events")
+        return events
+        
+    except Exception as e:
+        print(f"❌ Error scraping Stardust: {e}")
+        return []
+
+# Modify the main execution to include both venues
+print("\n" + "="*50)
+print("🎯 MULTI-VENUE EVENT SCRAPER")
+print("🎸 Will's Pub + 🌟 Stardust Coffee & Video")
+print("="*50)
+
+# Scrape Stardust events
+stardust_events = scrape_stardust_events()
+
+# Combine with existing Will's Pub events
+if 'events' in locals():
+    all_events = events + stardust_events
+else:
+    all_events = stardust_events
+
+# Sort all events by date
+all_events.sort(key=lambda x: f"{x['date']} {x['time']}")
+
+print(f"\n📊 COMBINED RESULTS:")
+print(f"===================")
+willspub_count = len([e for e in all_events if e['source'] == 'willspub'])
+stardust_count = len([e for e in all_events if e['source'] == 'stardust'])
+print(f"🎸 Will's Pub: {willspub_count} events")
+print(f"🌟 Stardust: {stardust_count} events")
+print(f"📅 Total: {len(all_events)} events")
+
+# Save combined events
+with open('combined_events.json', 'w') as f:
+    json.dump(all_events, f, indent=2)
+
+# Update Discord message to include both venues
+discord_webhook_url = os.environ.get('DISCORD_WEBHOOK_URL')
+if discord_webhook_url and all_events:
+    print(f"\n💬 Posting combined events to Discord...")
+    
+    # Create enhanced message with both venues
+    message = f"🎸 **Orlando Music Events Update** 🌟\n\n"
+    
+    if willspub_count > 0:
+        message += f"**🎸 Will's Pub** ({willspub_count} events):\n"
+        willspub_events_list = [e for e in all_events if e['source'] == 'willspub']
+        for event in willspub_events_list[:5]:
+            message += f"• **{event['title']}** - {event['date']} at {event['time']}\n"
+        if len(willspub_events_list) > 5:
+            message += f"... and {len(willspub_events_list) - 5} more\n"
+        message += "\n"
+    
+    if stardust_count > 0:
+        message += f"**🌟 Stardust Coffee & Video** ({stardust_count} events):\n"
+        stardust_events_list = [e for e in all_events if e['source'] == 'stardust']
+        for event in stardust_events_list[:5]:
+            message += f"• **{event['title']}** - {event['date']} at {event['time']}\n"
+        if len(stardust_events_list) > 5:
+            message += f"... and {len(stardust_events_list) - 5} more\n"
+        message += "\n"
+    
+    message += f"📅 **Total**: {len(all_events)} upcoming events across Orlando\n"
+    message += f"🕐 **Updated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    
+    try:
+        payload = {"content": message}
+        response = requests.post(discord_webhook_url, json=payload)
+        
+        if response.status_code == 204:
+            print("✅ Multi-venue summary posted to Discord!")
+        else:
+            print(f"⚠️  Discord post failed: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Discord error: {e}")
+
+print(f"\n🎯 MULTI-VENUE SCRAPING COMPLETE!")
+print(f"✅ Will's Pub + Stardust integration ready")

@@ -1,5 +1,18 @@
 [
   {
+    "title": "Audubon Park Community Market",
+    "date": "2025-08-18",
+    "time": "17:00",
+    "venue": "Stardust Coffee & Video",
+    "venue_url": "https://stardustvideoandcoffee.wordpress.com",
+    "url": "https://stardustvideoandcoffee.wordpress.com/events-2/",
+    "description": "Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+    "when_text": "August 18, 2025 at 5:00 pm \u2013 5:00 pm",
+    "source": "stardust",
+    "flyer_url": "",
+    "flyer_file": ""
+  },
+  {
     "title": "Buy Tickets",
     "date": "2025-08-19",
     "time": "19:00",
@@ -238,5 +251,83 @@
     "source": "willspub",
     "flyer_url": "https://i.ticketweb.com/i/00/12/64/26/14_Edp.jpg?v=3",
     "flyer_file": "Sold_Out_9c708248.jpg"
+  },
+  {
+    "title": "Local Songwriters Showcase",
+    "date": "2025-08-20",
+    "time": "19:00",
+    "venue": "Stardust Coffee & Video",
+    "venue_url": "https://stardustvideoandcoffee.wordpress.com",
+    "url": "https://stardustvideoandcoffee.wordpress.com/events-2/",
+    "description": "Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+    "when_text": "August 20, 2025 at 7:00 pm \u2013 10:00 pm",
+    "source": "stardust",
+    "flyer_url": "",
+    "flyer_file": ""
+  },
+  {
+    "title": "Allure",
+    "date": "2025-08-21",
+    "time": "19:15",
+    "venue": "Stardust Coffee & Video",
+    "venue_url": "https://stardustvideoandcoffee.wordpress.com",
+    "url": "https://stardustvideoandcoffee.wordpress.com/events-2/",
+    "description": "Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+    "when_text": "August 21, 2025 at 7:15 pm \u2013 11:15 pm",
+    "source": "stardust",
+    "flyer_url": "",
+    "flyer_file": ""
+  },
+  {
+    "title": "Connor Hunt",
+    "date": "2025-08-22",
+    "time": "19:00",
+    "venue": "Stardust Coffee & Video",
+    "venue_url": "https://stardustvideoandcoffee.wordpress.com",
+    "url": "https://stardustvideoandcoffee.wordpress.com/events-2/",
+    "description": "Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+    "when_text": "August 22, 2025 at 7:00 pm \u2013 11:00 pm",
+    "source": "stardust",
+    "flyer_url": "",
+    "flyer_file": ""
+  },
+  {
+    "title": "Candyfloss Creative Initiative Concert",
+    "date": "2025-08-23",
+    "time": "19:00",
+    "venue": "Stardust Coffee & Video",
+    "venue_url": "https://stardustvideoandcoffee.wordpress.com",
+    "url": "https://stardustvideoandcoffee.wordpress.com/events-2/",
+    "description": "Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+    "when_text": "August 23, 2025 at 7:00 pm \u2013 11:00 pm",
+    "source": "stardust",
+    "flyer_url": "",
+    "flyer_file": ""
+  },
+  {
+    "title": "False Cape",
+    "date": "2025-08-24",
+    "time": "19:15",
+    "venue": "Stardust Coffee & Video",
+    "venue_url": "https://stardustvideoandcoffee.wordpress.com",
+    "url": "https://stardustvideoandcoffee.wordpress.com/events-2/",
+    "description": "Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+    "when_text": "August 24, 2025 at 7:15 pm \u2013 11:15 pm",
+    "source": "stardust",
+    "flyer_url": "",
+    "flyer_file": ""
+  },
+  {
+    "title": "Audubon Park Community Market",
+    "date": "2025-08-25",
+    "time": "17:00",
+    "venue": "Stardust Coffee & Video",
+    "venue_url": "https://stardustvideoandcoffee.wordpress.com",
+    "url": "https://stardustvideoandcoffee.wordpress.com/events-2/",
+    "description": "Live music at Stardust Coffee & Video. Phone 407.623.3393 for more info.",
+    "when_text": "August 25, 2025 at 5:00 pm \u2013 5:00 pm",
+    "source": "stardust",
+    "flyer_url": "",
+    "flyer_file": ""
   }
 ]
