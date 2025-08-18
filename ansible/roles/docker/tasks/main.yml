@@ -20,6 +20,32 @@
       - docker-compose-plugin
     state: present
 
+- name: Create custom Docker data directory
+  file:
+    path: "{{ docker_root_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0711'
+
+- name: Configure Docker daemon with custom data directory
+  copy:
+    content: |
+      {
+        "data-root": "{{ docker_root_dir }}",
+        "storage-driver": "overlay2",
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    dest: "{{ docker_daemon_config_path }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart docker
+
 - name: Start and enable Docker service
   systemd:
     name: docker
@@ -41,13 +67,20 @@
     group: "{{ server_user }}"
     mode: '0755'
 
-- name: Copy ghost docker-compose files
+- name: Verify Docker is using custom data directory
+  command: docker info --format '{{.DockerRootDir}}'
+  register: docker_root_check
+  changed_when: false
+  failed_when: docker_root_check.stdout != docker_root_dir
+
+- name: Copy existing Ghost docker-compose files for reference
   copy:
     src: "{{ item }}"
     dest: "{{ home_directory }}/docker-compose/"
     owner: "{{ server_user }}"
     group: "{{ server_user }}"
     mode: '0644'
+    remote_src: yes
   loop:
     - "{{ home_directory }}/final_modern_ghost.yaml"
     - "{{ home_directory }}/fresh_ghost_blogs.yaml"

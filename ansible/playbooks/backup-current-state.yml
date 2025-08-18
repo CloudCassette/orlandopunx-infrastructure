@@ -1,0 +1,98 @@
+---
+- name: Backup Current Infrastructure State
+  hosts: all
+  become: yes
+  vars:
+    infrastructure_repo_path: "/home/cloudcassette/orlandopunx-infrastructure"
+    server_user: cloudcassette
+  
+  tasks:
+    - name: Create backup directory
+      file:
+        path: "{{ infrastructure_repo_path }}/backups/{{ ansible_date_time.epoch }}"
+        state: directory
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: '0755'
+
+    - name: Backup Docker daemon configuration
+      copy:
+        src: /etc/docker/daemon.json
+        dest: "{{ infrastructure_repo_path }}/backups/{{ ansible_date_time.epoch }}/daemon.json"
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: '0644'
+      ignore_errors: yes
+
+    - name: Export Docker container configurations
+      shell: docker inspect {{ item }} > {{ infrastructure_repo_path }}/backups/{{ ansible_date_time.epoch }}/{{ item }}-inspect.json
+      loop:
+        - cloudcassette-blog
+      ignore_errors: yes
+
+    - name: List Docker volumes and their locations
+      shell: 'docker volume ls --format "table {{ "{{" }}.Driver{{ "}}" }}\t{{ "{{" }}.Name{{ "}}" }}" > {{ infrastructure_repo_path }}/backups/{{ ansible_date_time.epoch }}/docker-volumes.txt'
+      
+    - name: Document volume mount points  
+      shell: docker volume inspect {{ item }} > {{ infrastructure_repo_path }}/backups/{{ ansible_date_time.epoch }}/volume-{{ item }}.json
+      loop:
+        - cloudcassette_ghost_content
+        - cloudcassette_ghost_mysql
+        - cloudcassette_fresh_ghost_content
+      ignore_errors: yes
+
+    - name: Get Docker root directory info
+      command: 'docker info --format "{{ "{{" }}.DockerRootDir{{ "}}" }}"'
+      register: docker_root_info
+      changed_when: false
+
+    - name: Get disk usage for Steam Dock mount
+      shell: df -h "/media/Steam Dock" | tail -1
+      register: steam_dock_usage
+      changed_when: false
+
+    - name: Create infrastructure summary
+      copy:
+        content: |
+          # Infrastructure Backup - {{ ansible_date_time.iso8601 }}
+          
+          ## Critical: Custom Docker Configuration
+          - Docker Root Directory: {{ docker_root_info.stdout }}
+          - Steam Dock Mount: {{ steam_dock_usage.stdout }}
+          - Volume Location: {{ docker_root_info.stdout }}/volumes/
+          
+          ## Current Running Containers
+          - cloudcassette-blog: Ghost:latest (Up 5 days, port 2368)
+          
+          ## Current Services Status
+          - nginx: active (proxying orlandopunx.com to Gancio:13120)
+          - docker: active (custom root: /media/Steam Dock/docker_data)
+          - postgresql: active (cluster 15-main)
+          - gancio: active (port 13120)
+          
+          ## Existing Ghost Volumes (Steam Dock location)
+          - cloudcassette_ghost_content: {{ docker_root_info.stdout }}/volumes/cloudcassette_ghost_content/_data
+          - cloudcassette_ghost_mysql: {{ docker_root_info.stdout }}/volumes/cloudcassette_ghost_mysql/_data  
+          - cloudcassette_fresh_ghost_content: {{ docker_root_info.stdout }}/volumes/cloudcassette_fresh_ghost_content/_data
+          
+          ## System Info
+          - OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          - Architecture: {{ ansible_architecture }}
+          - Hostname: {{ ansible_hostname }}
+          - Kernel: {{ ansible_kernel }}
+          
+          ## orlandogirlsrockcamp.com Status ❌
+          - Container: NOT FOUND (needs restoration)
+          - Volume: NOT FOUND (will be created in Steam Dock location)
+          - nginx config: NOT FOUND (will be created by Ansible)
+          - Domain: NOT CONFIGURED (needs nginx site)
+          
+          ## Next Steps for Restoration
+          1. Run: ansible-playbook playbooks/restore-orlandogirlsrockcamp.yml --ask-vault-pass
+          2. This will create volumes in: {{ docker_root_info.stdout }}/volumes/
+          3. Restore Ghost content from backup to new volumes
+          4. Configure DNS to point orlandogirlsrockcamp.com to this server
+        dest: "{{ infrastructure_repo_path }}/backups/{{ ansible_date_time.epoch }}/INFRASTRUCTURE_SNAPSHOT.md"
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: '0644'

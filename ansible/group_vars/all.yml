@@ -30,3 +30,8 @@ ssl_private_key_path: "/etc/ssl/private/ssl-cert-snakeoil.key"
 # Directories
 home_directory: "/home/{{ server_user }}"
 infrastructure_repo_path: "{{ home_directory }}/orlandopunx-infrastructure"
+
+# Custom Docker configuration
+docker_root_dir: "/media/Steam Dock/docker_data"
+docker_volumes_path: "{{ docker_root_dir }}/volumes"
+docker_daemon_config_path: "/etc/docker/daemon.json"
