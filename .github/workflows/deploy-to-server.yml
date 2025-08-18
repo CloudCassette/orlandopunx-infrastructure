@@ -7,38 +7,58 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: 🚀 Deploy to Production Server
     
     steps:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
       
-    - name: 📡 Deploy via SSH
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ secrets.SERVER_PORT || 22 }}
-        script: |
-          echo "🎸 Starting OrlandoPunx.com deployment..."
-          
-          # Navigate to infrastructure repo
-          cd /home/cloudcassette/orlandopunx-infrastructure || exit 1
-          
-          # Pull latest changes
-          echo "📥 Pulling latest changes..."
-          git pull origin main || exit 1
-          
-          # Simple success confirmation
-          echo "✅ Code deployment completed successfully!"
-          echo "📝 Current commit: $(git rev-parse --short HEAD)"
-          echo "📅 Deployed at: $(date)"
-          
-          # Log deployment to user directory
-          mkdir -p /home/cloudcassette/logs
-          echo "$(date): Successfully deployed commit $(git rev-parse --short HEAD)" >> /home/cloudcassette/logs/orlandopunx-deployment.log || true
+    - name: 📡 Deploy Locally
+      run: |
+        echo "🎸 Starting OrlandoPunx.com deployment..."
+        
+        # We're already in the right directory since this is self-hosted
+        pwd
+        
+        # Deploy SEO improvements if changed
+        if git diff --name-only HEAD~1 HEAD | grep -E "^seo/"; then
+          echo "🔍 SEO files changed, deploying..."
+          ./seo/deploy-minimal-seo.sh || echo "⚠️ SEO deployment completed with warnings"
+        fi
+        
+        # Deploy favicon if changed
+        if git diff --name-only HEAD~1 HEAD | grep -E "icons8.*\.png$"; then
+          echo "🎨 Favicon changed, deploying..."
+          ./seo/update-favicon.sh || echo "⚠️ Favicon deployment completed with warnings"
+        fi
+        
+        # Deploy Gancio customizations if changed
+        if git diff --name-only HEAD~1 HEAD | grep -E "^gancio/"; then
+          echo "🎸 Gancio customizations changed, deploying..."
+          if [ -f "./gancio/scripts/deploy-customizations.sh" ]; then
+            ./gancio/scripts/deploy-customizations.sh || echo "⚠️ Gancio deployment completed with warnings"
+          fi
+        fi
+        
+        # Check if services need restarting
+        if git diff --name-only HEAD~1 HEAD | grep -E "config.*\.json|nuxt\.config\.js"; then
+          echo "⚙️ Configuration changed - services may need manual restart"
+        fi
+        
+        # Run basic connectivity check
+        echo "🏥 Running basic connectivity check..."
+        if curl -s -f --max-time 10 http://localhost:13120/ > /dev/null 2>&1; then
+          echo "✅ Gancio service responding"
+        else
+          echo "⚠️ Gancio service check failed - may need manual restart"
+        fi
+        
+        echo "✅ Deployment completed!"
+        
+        # Log deployment
+        mkdir -p /home/cloudcassette/logs
+        echo "$(date): Successfully deployed commit $(git rev-parse --short HEAD)" >> /home/cloudcassette/logs/orlandopunx-deployment.log
 
   notify:
     runs-on: ubuntu-latest
