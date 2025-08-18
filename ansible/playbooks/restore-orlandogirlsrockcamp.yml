@@ -4,11 +4,18 @@
   become: yes
   vars_files:
     - ../group_vars/vault.yml
+    - ../group_vars/webservers.yml
+    - ../group_vars/ghostservers.yml
   
   tasks:
+    - name: Create Ghost Docker network if it doesn't exist
+      community.docker.docker_network:
+        name: "{{ ghost_network_name }}"
+        state: present
+
     - name: Ensure nginx configuration includes orlandogirlsrockcamp
       template:
-        src: domain_config.j2
+        src: ../roles/nginx/templates/domain_config.j2
         dest: "{{ nginx_sites_available_path }}/orlandogirlsrockcamp.com"
         owner: root
         group: root
