@@ -1,0 +1,80 @@
+name: 🎸 Sync Will's Pub Events
+
+on:
+  schedule:
+    - cron: '0 9,15,21 * * *'  # Run 3 times daily: 9am, 3pm, 9pm EST
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  sync-events:
+    runs-on: self-hosted
+    name: 📅 Sync Events from Will's Pub
+    
+    steps:
+    - name: 🔄 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: 🎯 Scrape Will's Pub Events
+      run: |
+        cd scripts/event-sync
+        
+        # Activate virtual environment
+        source venv/bin/activate
+        
+        # Run the scraper to get latest events
+        echo "🎸 Scraping events from Will's Pub..."
+        python3 willspub_manual_import.py << EOF
+        20
+        EOF
+        
+        # Check if new events were found
+        EVENTS_COUNT=$(jq length willspub_events.json)
+        echo "📊 Found $EVENTS_COUNT events from Will's Pub"
+        
+        # Copy results to a timestamped backup
+        mkdir -p ../../backups/willspub-events
+        cp willspub_events.* ../../backups/willspub-events/willspub_events_$(date +%Y%m%d_%H%M).
+        
+        echo "✅ Event scraping completed"
+        echo "📝 Results saved to: scripts/event-sync/willspub_events.*"
+        echo "🔄 Manual import files ready for Gancio admin review"
+        
+    - name: 📋 Summary Report
+      run: |
+        cd scripts/event-sync
+        echo "📊 Will's Pub Event Sync Summary"
+        echo "================================="
+        echo "📅 Sync Time: $(date)"
+        echo "📍 Events Found: $(jq length willspub_events.json) events"
+        echo "📄 Files Generated:"
+        echo "   - willspub_events.txt (manual import)"
+        echo "   - willspub_events.json (API data)" 
+        echo "   - willspub_events.csv (spreadsheet)"
+        echo ""
+        echo "🎯 Next Steps:"
+        echo "   1. Review willspub_events.txt for new events"
+        echo "   2. Add interesting events to Gancio admin panel"
+        echo "   3. Check orlandopunx.com for updated event listings"
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: sync-events
+    if: always()
+    name: 📢 Notify Sync Status
+    
+    steps:
+    - name: 📧 Send Discord Notification
+      if: always()
+      uses: tsickert/discord-webhook@v6.0.0
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        content: |
+          🎸 **Will's Pub Event Sync**
+          
+          **Status:** ${{ needs.sync-events.result == 'success' && '✅ Success' || '❌ Failed' }}
+          **Time:** $(date)
+          **Repository:** ${{ github.repository }}
+          
+          ${{ needs.sync-events.result == 'success' && '📅 New events scraped and ready for review!' || '⚠️ Event sync failed - check action logs' }}
+          
+          **Action Run:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
