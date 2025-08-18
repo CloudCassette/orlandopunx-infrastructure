@@ -177,7 +177,7 @@ Content-Type: application/rss+xml
   <channel>
     <title>Orlando Punk Shows</title>
     <link>https://orlandopunx.com</link>
-    <description>A digital poster wall for underground punk shows in Orlando, FL</description>
+    <description>A digital poster wall for DIY, PUNK, AND HARDCORE shows in Orlando, FL</description>
     <item>
       <title>Event Title</title>
       <link>https://orlandopunx.com/event/event-slug</link>
