@@ -1,0 +1,81 @@
+---
+- name: Sync Orlando Punk Events
+  hosts: localhost
+  connection: local
+  vars:
+    sync_dir: "/home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync"
+    gancio_email: "godlessamericarecords@gmail.com"
+    log_file: "/home/cloudcassette/logs/orlandopunx-sync.log"
+    
+  tasks:
+    - name: Ensure log directory exists
+      file:
+        path: "/home/cloudcassette/logs"
+        state: directory
+        mode: '0755'
+    
+    - name: Check if Gancio is running
+      uri:
+        url: "http://localhost:13120"
+        method: GET
+        status_code: 200
+      register: gancio_health
+      ignore_errors: yes
+      
+    - name: Fail if Gancio is not running
+      fail:
+        msg: "Gancio is not running on localhost:13120"
+      when: gancio_health.status != 200
+      
+    - name: Set environment variables for Gancio sync
+      set_fact:
+        sync_env:
+          GANCIO_EMAIL: "{{ gancio_email }}"
+          GANCIO_URL: "http://localhost:13120"
+          GANCIO_PASSWORD: "{{ gancio_password | default('') }}"
+      no_log: true
+      
+    - name: Run event scraper and sync
+      shell: |
+        cd {{ sync_dir }}
+        source venv/bin/activate
+        python3 enhanced_multi_venue_sync.py >> {{ log_file }} 2>&1
+      environment: "{{ sync_env }}"
+      register: scraper_result
+      
+    - name: Log scraper results
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} - Scraper completed with exit code: {{ scraper_result.rc }}"
+        create: yes
+        
+    - name: Run Gancio sync if scraper succeeded
+      shell: |
+        cd {{ sync_dir }}
+        source venv/bin/activate
+        echo "y" | python3 automated_sync_with_credentials.py >> {{ log_file }} 2>&1
+      environment: "{{ sync_env }}"
+      register: sync_result
+      when: scraper_result.rc == 0 and gancio_password is defined
+      
+    - name: Log sync results
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} - Gancio sync completed with exit code: {{ sync_result.rc | default('skipped') }}"
+        create: yes
+        
+    - name: Display results
+      debug:
+        msg: |
+          Scraper exit code: {{ scraper_result.rc }}
+          Sync exit code: {{ sync_result.rc | default('skipped - no password provided') }}
+          Log file: {{ log_file }}
+          
+    - name: Check for new events in output
+      shell: |
+        tail -20 {{ log_file }} | grep -E "(✅|❌|📅)" || echo "No event markers found"
+      register: event_summary
+      
+    - name: Show event summary
+      debug:
+        msg: "{{ event_summary.stdout_lines }}"
