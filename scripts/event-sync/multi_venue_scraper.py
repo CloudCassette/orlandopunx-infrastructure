@@ -4,7 +4,8 @@
 ============================
 Scrapes events from multiple Orlando venues:
 - Will's Pub
-- Stardust Coffee & Video
+- Stardust Coffee & Video  
+- Conduit FL
 
 Combines events, removes duplicates, and posts to Discord + orlandopunx.com
 """
@@ -17,6 +18,9 @@ from datetime import datetime, timedelta
 import os
 from urllib.parse import urljoin, urlparse
 import hashlib
+
+# Import individual scrapers
+from conduit_scraper import scrape_conduit_events
 
 # Import the existing Will's Pub scraper functions
 # We'll adapt the enhanced_willspub_sync.py logic
@@ -190,18 +194,55 @@ def scrape_stardust_events():
         print(f"❌ Error scraping Stardust: {e}")
         return []
 
-def merge_and_deduplicate_events(willspub_events, stardust_events):
-    """Merge events from both venues and remove duplicates"""
-    all_events = willspub_events + stardust_events
+def merge_and_deduplicate_events(willspub_events, stardust_events, conduit_events):
+    """Merge events from all venues and remove duplicates"""
+    all_events = willspub_events + stardust_events + conduit_events
     
     # Sort by date and time
     all_events.sort(key=lambda x: f"{x['date']} {x['time']}")
     
+    # Remove potential duplicates based on title similarity and date
+    deduplicated = []
+    for event in all_events:
+        is_duplicate = False
+        for existing in deduplicated:
+            # Check if it's a potential duplicate
+            if (event['date'] == existing['date'] and 
+                title_similarity(event['title'], existing['title']) > 0.8):
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            deduplicated.append(event)
+    
     print(f"📊 Total events before deduplication: {len(all_events)}")
+    print(f"📊 Total events after deduplication: {len(deduplicated)}")
     print(f"   - Will's Pub: {len(willspub_events)}")
     print(f"   - Stardust: {len(stardust_events)}")
+    print(f"   - Conduit: {len(conduit_events)}")
     
-    return all_events
+    return deduplicated
+
+def title_similarity(title1, title2):
+    """Calculate simple similarity between two titles"""
+    # Convert to lowercase and remove common words
+    def normalize(title):
+        title = title.lower()
+        # Remove common words that don't help with matching
+        common_words = ['the', 'and', 'with', 'at', 'live', 'show', 'concert', 'music']
+        words = [word for word in title.split() if word not in common_words]
+        return set(words)
+    
+    set1 = normalize(title1)
+    set2 = normalize(title2)
+    
+    if not set1 or not set2:
+        return 0
+    
+    intersection = len(set1.intersection(set2))
+    union = len(set1.union(set2))
+    
+    return intersection / union if union > 0 else 0
 
 def post_to_discord(events, webhook_url):
     """Post events summary to Discord"""
@@ -216,6 +257,7 @@ def post_to_discord(events, webhook_url):
     # Group events by venue
     willspub_events = [e for e in events if e['source'] == 'willspub']
     stardust_events = [e for e in events if e['source'] == 'stardust']
+    conduit_events = [e for e in events if e['source'] == 'conduit']
     
     # Create Discord message
     message = f"🎸 **Orlando Music Events Update** 🎵\n\n"
@@ -234,6 +276,14 @@ def post_to_discord(events, webhook_url):
             message += f"• **{event['title']}** - {event['date']} at {event['time']}\n"
         if len(stardust_events) > 5:
             message += f"... and {len(stardust_events) - 5} more events\n"
+        message += "\n"
+    
+    if conduit_events:
+        message += f"**🎸 Conduit** ({len(conduit_events)} events):\n"
+        for event in conduit_events[:5]:  # Limit to 5 per venue
+            message += f"• **{event['title']}** - {event['date']} at {event['time']} (${event['price']})\n"
+        if len(conduit_events) > 5:
+            message += f"... and {len(conduit_events) - 5} more events\n"
         message += "\n"
     
     message += f"📅 **Total**: {len(events)} upcoming events\n"
@@ -262,12 +312,13 @@ def main():
     print("🎯 MULTI-VENUE EVENT SCRAPER")
     print("============================")
     
-    # Scrape both venues
+    # Scrape all venues
     willspub_events = []  # Would call actual Will's Pub scraper here
     stardust_events = scrape_stardust_events()
+    conduit_events = scrape_conduit_events(download_images=True)
     
     # Merge events
-    all_events = merge_and_deduplicate_events(willspub_events, stardust_events)
+    all_events = merge_and_deduplicate_events(willspub_events, stardust_events, conduit_events)
     
     # Save results
     save_combined_events(all_events)
@@ -282,6 +333,7 @@ def main():
     print(f"================")
     print(f"🎸 Will's Pub events: {len(willspub_events)}")
     print(f"🌟 Stardust events: {len(stardust_events)}")
+    print(f"🎸 Conduit events: {len(conduit_events)}")
     print(f"📅 Total events: {len(all_events)}")
     
     return all_events
