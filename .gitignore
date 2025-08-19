@@ -64,3 +64,20 @@ __pycache__/
 # Sensitive configuration backups
 *.backup-*
 *.bak
+# Downloaded flyer images
+scripts/event-sync/flyers/*.jpg
+scripts/event-sync/flyers/*.png
+scripts/event-sync/flyers/*.gif
+
+# Event data files (generated)
+scripts/event-sync/*_events.json
+scripts/event-sync/combined_events*.json
+scripts/event-sync/sync_summary*.txt
+
+# HTML cache files
+scripts/event-sync/*.html
+
+# Temporary/debug files
+scripts/event-sync/debug_*.py
+scripts/event-sync/test_*.py
+scripts/event-sync/*_test.py
