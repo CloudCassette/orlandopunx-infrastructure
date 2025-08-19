@@ -1,0 +1,14 @@
+[Unit]
+Description=Orlando Punk Events Flyer Gallery
+After=network.target
+
+[Service]
+Type=simple
+User=cloudcassette
+WorkingDirectory=/home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync
+ExecStart=/usr/bin/python3 /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/serve_flyers.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
