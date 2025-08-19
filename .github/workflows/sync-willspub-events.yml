@@ -1,4 +1,4 @@
-name: 🎸 Multi-Venue Orlando Events Sync
+name: 🎸 Multi-Venue Orlando Events Sync (FIXED)
 
 on:
   schedule:
@@ -14,144 +14,33 @@ jobs:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
       
-    - name: 🎯 Multi-Venue Event Scraping & Discord Integration
+    - name: 🎸 Orlando Events Sync (Complete Pipeline)
       env:
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+        GANCIO_URL: http://localhost:13120
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: |
         cd scripts/event-sync
         
+        echo "🎸 Starting GitHub Actions event sync..."
+        echo "Using the same working script as cron job"
+        
         # Activate virtual environment
         source venv/bin/activate
         
-        # Run the multi-venue scraper
-        echo "🎸 Running multi-venue Orlando event scraper..."
-        echo "Venues: Will's Pub + Stardust Coffee & Video"
-        python3 enhanced_multi_venue_sync.py
+        # Run the working automated sync
+        python3 automated_sync_working.py
         
-        echo "✅ Multi-venue Discord integration completed"
-        
-    - name: 🌐 Website Integration (orlandopunx.com)
-      env:
-        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
-        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
-        GANCIO_URL: https://orlandopunx.com
-      run: |
-        cd scripts/event-sync
-        
-        if [ -n "$GANCIO_EMAIL" ] && [ -n "$GANCIO_PASSWORD" ]; then
-          echo "🌐 Adding events to orlandopunx.com..."
-          
-          # Create Gancio integration script for combined events
-          cat > gancio_integration.py << 'PYEOF'
-import json
-import requests
-import os
-from datetime import datetime
-
-# Load the combined events
-try:
-    with open('combined_events.json', 'r') as f:
-        events = json.load(f)
-    print(f"📋 Found {len(events)} events to process from both venues")
-except:
-    print("❌ No events file found")
-    exit(1)
-
-# Setup Gancio session
-session = requests.Session()
-gancio_url = os.environ.get('GANCIO_URL', 'https://orlandopunx.com')
-
-# Authenticate
-login_data = {
-    'email': os.environ.get('GANCIO_EMAIL'),
-    'password': os.environ.get('GANCIO_PASSWORD')
-}
-
-try:
-    response = session.post(f"{gancio_url}/login", data=login_data)
-    if response.status_code == 200:
-        print("✅ Authenticated with orlandopunx.com")
-    else:
-        print(f"❌ Authentication failed: {response.status_code}")
-        exit(1)
-except Exception as e:
-    print(f"❌ Auth error: {e}")
-    exit(1)
-
-# Add events from both venues
-added_count = 0
-willspub_count = 0
-stardust_count = 0
-
-for event in events:
-    try:
-        event_date = event.get('date', '')
-        event_time = event.get('time', '19:00')
-        venue_source = event.get('source', 'unknown')
-        
-        if event_date:
-            date_obj = datetime.strptime(f"{event_date} {event_time}", "%Y-%m-%d %H:%M")
-            start_timestamp = int(date_obj.timestamp()) * 1000
-            end_timestamp = start_timestamp + (3 * 3600 * 1000)
-        else:
-            continue
-        
-        # Add venue-specific tags
-        venue_tags = ["live-music"]
-        if venue_source == 'willspub':
-            venue_tags.extend(["willspub", "punk", "rock"])
-        elif venue_source == 'stardust':
-            venue_tags.extend(["stardust", "coffee", "acoustic"])
-        
-        gancio_event = {
-            "title": event.get('title', ''),
-            "description": event.get('description', '') + f"\n\nVenue: {event.get('venue', '')}\nMore info: {event.get('url', '')}",
-            "start_datetime": start_timestamp,
-            "end_datetime": end_timestamp,
-            "place_id": 1,
-            "tags": venue_tags,
-            "recurrent": False,
-            "online": False
-        }
-        
-        response = session.post(
-            f"{gancio_url}/add",
-            json=gancio_event,
-            headers={'Content-Type': 'application/json'}
-        )
-        
-        if response.status_code in [200, 201]:
-            print(f"   ✅ Added: {event.get('title', 'Unknown')} ({event.get('venue', 'Unknown venue')})")
-            added_count += 1
-            if venue_source == 'willspub':
-                willspub_count += 1
-            elif venue_source == 'stardust':
-                stardust_count += 1
-        else:
-            print(f"   ⚠️  Skipped: {event.get('title', 'Unknown')} ({response.status_code})")
-            
-    except Exception as e:
-        print(f"   ❌ Error with {event.get('title', 'Unknown')}: {e}")
-
-print(f"🌐 Added {added_count} events to orlandopunx.com:")
-print(f"   🎸 Will's Pub: {willspub_count}")
-print(f"   🌟 Stardust: {stardust_count}")
-PYEOF
-
-          python3 gancio_integration.py
-          
-        else
-          echo "⚠️  No Gancio credentials - skipping website integration"
-          echo "Add GANCIO_EMAIL and GANCIO_PASSWORD secrets to enable this feature"
-        fi
+        echo "✅ Orlando events sync completed via GitHub Actions"
         
     - name: 📁 Archive Results
       run: |
         cd scripts/event-sync
         
         echo ""
-        echo "📊 Final Multi-Venue Results:"
-        echo "============================="
+        echo "📊 GitHub Actions Sync Results:"
+        echo "==============================="
         if [ -f sync_summary.txt ]; then
           cat sync_summary.txt
         fi
@@ -163,14 +52,11 @@ PYEOF
         
         # Archive results
         mkdir -p ../../backups/orlando-events
-        cp combined_events.json ../../backups/orlando-events/events_$(date +%Y%m%d_%H%M).json 2>/dev/null || true
         cp willspub_events.json ../../backups/orlando-events/willspub_$(date +%Y%m%d_%H%M).json 2>/dev/null || true
-        cp stardust_events.json ../../backups/orlando-events/stardust_$(date +%Y%m%d_%H%M).json 2>/dev/null || true
         
         if [ -d flyers ] && [ "$(ls -A flyers)" ]; then
           mkdir -p ../../backups/orlando-flyers  
           cp -r flyers ../../backups/orlando-flyers/flyers_$(date +%Y%m%d_%H%M)/ 2>/dev/null || true
         fi
         
-        echo "✅ Complete multi-venue automation pipeline finished!"
-        echo "🎸 Will's Pub + 🌟 Stardust = 🎵 Full Orlando coverage"
+        echo "✅ GitHub Actions automation pipeline completed!"

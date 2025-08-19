@@ -1,6 +1,6 @@
 Multi-Venue Sync Summary
 ========================
-Timestamp: 2025-08-18 11:24:39
+Timestamp: 2025-08-19 01:26:22
 
 Will's Pub Events: 20
 Stardust Events: 7
@@ -8,12 +8,12 @@ Total Events: 27
 
 Recent Events:
 - Audubon Park Community Market (Stardust Coffee & Video) - 2025-08-18 17:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
-- Buy Tickets (Will's Pub) - 2025-08-19 19:00
+- Sales Ended (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+- Buy Tickets (Will's Pub) - 2025-08-20 19:00
