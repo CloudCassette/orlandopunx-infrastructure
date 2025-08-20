@@ -395,8 +395,8 @@ class EnhancedGalleryHandler(BaseHTTPRequestHandler):
         super().log_message(format, *args)
 
 if __name__ == '__main__':
-    server = HTTPServer(('0.0.0.0', 8081), EnhancedGalleryHandler)
-    print(f"🎨 Enhanced Flyer Gallery Server running on http://192.168.86.4:8081")
+    server = HTTPServer(('0.0.0.0', 8083), EnhancedGalleryHandler)
+    print(f"🎨 Enhanced Flyer Gallery Server running on http://192.168.86.4:8083")
     print("✨ Features:")
     print("   • Enhanced text visibility with backgrounds")
     print("   • Debug mode button (or add ?debug to URL)")
