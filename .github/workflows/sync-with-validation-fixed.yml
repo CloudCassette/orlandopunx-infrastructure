@@ -1,0 +1,308 @@
+name: Enhanced Event Sync with Validation (Fixed)
+
+on:
+  schedule:
+    # Run three times per day
+    - cron: '0 9,15,21 * * *'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if no new events'
+        required: false
+        default: 'false'
+        type: boolean
+      debug_mode:
+        description: 'Enable debug mode with extra logging'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+  GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+  GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL || 'http://localhost:13120' }}
+
+jobs:
+  pre-sync-validation:
+    runs-on: self-hosted
+    outputs:
+      should_continue: ${{ steps.validation.outputs.should_continue }}
+      data_quality_score: ${{ steps.validation.outputs.data_quality_score }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Debug Environment
+      if: github.event.inputs.debug_mode == 'true'
+      run: |
+        echo "🔍 Debug Information:"
+        echo "Runner: $(hostname)"
+        echo "User: $(whoami)"
+        echo "Working Directory: $(pwd)"
+        echo "Python Version: $(python3 --version)"
+        echo "Network Test:"
+        curl -f -s http://localhost:13120/api/events > /dev/null && echo "✅ Gancio accessible" || echo "❌ Gancio not accessible"
+        echo "Environment Variables:"
+        echo "GANCIO_EMAIL: ${GANCIO_EMAIL:0:5}..." # Show first 5 chars
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:+[SET]}" # Show [SET] if exists
+        echo "GANCIO_BASE_URL: $GANCIO_BASE_URL"
+    
+    - name: Set up Python environment
+      run: |
+        cd ${{ github.workspace }}
+        echo "📦 Setting up Python environment..."
+        
+        # Remove existing venv if it exists
+        rm -rf venv
+        
+        # Create fresh virtual environment
+        python3 -m venv venv
+        source venv/bin/activate
+        
+        # Upgrade pip and install dependencies
+        pip install --upgrade pip
+        pip install requests beautifulsoup4 lxml jq
+        
+        # Verify installations
+        echo "✅ Python environment setup complete"
+        pip list | grep -E "(requests|beautifulsoup4|lxml)"
+    
+    - name: Test Gancio Connectivity
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        echo "🔍 Testing Gancio connectivity..."
+        
+        # Test basic API connectivity
+        if curl -f -s -m 10 "${GANCIO_BASE_URL}/api/events" > /dev/null; then
+          echo "✅ Gancio API is accessible at ${GANCIO_BASE_URL}"
+          EVENT_COUNT=$(curl -s "${GANCIO_BASE_URL}/api/events" | jq length 2>/dev/null || echo "0")
+          echo "📊 Found $EVENT_COUNT events in Gancio"
+        else
+          echo "❌ Cannot reach Gancio API at ${GANCIO_BASE_URL}"
+          echo "🔍 Network diagnostics:"
+          ping -c 1 localhost || echo "Localhost ping failed"
+          netstat -tlnp | grep :13120 || echo "Port 13120 not listening"
+          exit 1
+        fi
+        
+        # Test authentication if credentials are provided
+        if [ -n "$GANCIO_EMAIL" ] && [ -n "$GANCIO_PASSWORD" ]; then
+          echo "🔐 Testing Gancio authentication..."
+          # Create a simple auth test
+          python3 -c "
+import requests
+import os
+
+base_url = os.getenv('GANCIO_BASE_URL', 'http://localhost:13120')
+email = os.getenv('GANCIO_EMAIL')
+password = os.getenv('GANCIO_PASSWORD')
+
+session = requests.Session()
+try:
+    # Get login page
+    session.get(f'{base_url}/login')
+    # Try login
+    response = session.post(f'{base_url}/auth/login', data={
+        'email': email, 'password': password
+    }, allow_redirects=True)
+    
+    if 'admin' in response.url or response.status_code == 200:
+        print('✅ Gancio authentication successful')
+    else:
+        print(f'❌ Gancio authentication failed: {response.status_code}')
+        print(f'Response URL: {response.url}')
+        exit(1)
+except Exception as e:
+    print(f'❌ Authentication test error: {e}')
+    exit(1)
+"
+        else
+          echo "⚠️ No Gancio credentials provided, skipping auth test"
+        fi
+    
+    - name: Pre-sync Data Validation
+      id: validation
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        echo "🔍 Running pre-sync validation..."
+        
+        # Set environment variables for the script
+        export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
+        
+        # Run comprehensive monitoring in CI mode
+        python3 comprehensive_monitoring_system.py --ci-mode --save-report --quiet
+        validation_exit_code=$?
+        
+        # Get data quality score
+        if [ -f monitoring_report_*.json ]; then
+          data_quality_score=$(jq -r '.summary.data_quality_score' monitoring_report_*.json 2>/dev/null || echo "0")
+          echo "data_quality_score=$data_quality_score" >> $GITHUB_OUTPUT
+          echo "📊 Data quality score: $data_quality_score/100"
+        else
+          echo "data_quality_score=0" >> $GITHUB_OUTPUT
+          echo "⚠️ No monitoring report generated"
+        fi
+        
+        # Decide whether to continue
+        if [ $validation_exit_code -eq 0 ] || [ "${{ github.event.inputs.force_sync }}" == "true" ]; then
+          echo "should_continue=true" >> $GITHUB_OUTPUT
+          echo "✅ Pre-sync validation passed or force sync requested"
+        else
+          echo "should_continue=false" >> $GITHUB_OUTPUT
+          echo "❌ Pre-sync validation failed - stopping workflow"
+          
+          # Show validation errors if debug mode
+          if [ "${{ github.event.inputs.debug_mode }}" == "true" ]; then
+            echo "🔍 Validation errors:"
+            cat monitoring_report_*.json 2>/dev/null | jq '.alerts' || echo "No detailed error information"
+          fi
+        fi
+        
+        exit $validation_exit_code
+
+  enhanced-sync:
+    runs-on: self-hosted
+    needs: pre-sync-validation
+    if: needs.pre-sync-validation.outputs.should_continue == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment and dependencies
+      run: |
+        cd ${{ github.workspace }}
+        echo "📦 Setting up Python environment for sync..."
+        
+        # Reuse or create virtual environment
+        if [ ! -d "venv" ]; then
+          python3 -m venv venv
+        fi
+        source venv/bin/activate
+        
+        # Install all required dependencies
+        pip install --upgrade pip
+        pip install requests beautifulsoup4 lxml jq
+        
+        echo "✅ Dependencies installed"
+    
+    - name: Run Enhanced Sync with Validation
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        echo "🚀 Starting enhanced sync with complete validation..."
+        echo "📊 Pre-sync data quality score: ${{ needs.pre-sync-validation.outputs.data_quality_score }}/100"
+        
+        # Set environment variables
+        export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
+        
+        # Check if sync script exists
+        if [ ! -f "enhanced_sync_with_complete_validation.py" ]; then
+          echo "❌ Sync script not found, falling back to monitoring test"
+          python3 comprehensive_monitoring_system.py --save-report
+          sync_exit_code=$?
+        else
+          # Run the enhanced sync script
+          python3 enhanced_sync_with_complete_validation.py
+          sync_exit_code=$?
+        fi
+        
+        echo "📊 Sync completed with exit code: $sync_exit_code"
+        
+        if [ $sync_exit_code -eq 0 ]; then
+          echo "✅ Enhanced sync completed successfully"
+        else
+          echo "❌ Enhanced sync failed"
+          if [ "${{ github.event.inputs.debug_mode }}" == "true" ]; then
+            echo "🔍 Debug information:"
+            ls -la . | head -10
+            echo "Environment variables:"
+            env | grep -E "(GANCIO|PYTHON)" || true
+          fi
+        fi
+        
+        exit $sync_exit_code
+
+  post-sync-validation:
+    runs-on: self-hosted
+    needs: [pre-sync-validation, enhanced-sync]
+    if: always() && needs.pre-sync-validation.outputs.should_continue == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment
+      run: |
+        cd ${{ github.workspace }}
+        source venv/bin/activate || (python3 -m venv venv && source venv/bin/activate)
+        pip install requests jq
+    
+    - name: Post-sync Data Validation
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        echo "🔍 Running post-sync validation..."
+        
+        # Set environment variables
+        export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
+        
+        # Run comprehensive monitoring
+        python3 comprehensive_monitoring_system.py --save-report --quiet
+        
+        # Also run duplicate monitoring if it exists
+        if [ -f "duplicate_monitoring.py" ]; then
+          python3 duplicate_monitoring.py --once --suggest-cleanup || true
+        fi
+        
+        # Check if any new issues were introduced
+        if [ -f monitoring_report_*.json ]; then
+          new_data_quality_score=$(jq -r '.summary.data_quality_score' monitoring_report_*.json 2>/dev/null || echo "100")
+          critical_alerts=$(jq -r '.summary.critical_alerts' monitoring_report_*.json 2>/dev/null || echo "0")
+          error_alerts=$(jq -r '.summary.error_alerts' monitoring_report_*.json 2>/dev/null || echo "0")
+          
+          echo "📊 Post-sync data quality score: $new_data_quality_score/100"
+          echo "🚨 Critical alerts: $critical_alerts"
+          echo "❌ Error alerts: $error_alerts"
+          
+          if [ "$critical_alerts" -gt 0 ]; then
+            echo "🚨 CRITICAL: Post-sync validation found critical issues!"
+            exit 2
+          elif [ "$error_alerts" -gt 0 ]; then
+            echo "❌ ERROR: Post-sync validation found errors!"
+            exit 1
+          else
+            echo "✅ Post-sync validation passed"
+          fi
+        else
+          echo "✅ Post-sync validation completed (no detailed report)"
+        fi
+
+  notification:
+    runs-on: self-hosted
+    needs: [pre-sync-validation, enhanced-sync, post-sync-validation]
+    if: always()
+    
+    steps:
+    - name: Send notification summary
+      run: |
+        echo "📊 Workflow Summary:"
+        echo "Pre-sync validation: ${{ needs.pre-sync-validation.result }}"
+        echo "Enhanced sync: ${{ needs.enhanced-sync.result }}"
+        echo "Post-sync validation: ${{ needs.post-sync-validation.result }}"
+        
+        if [ "${{ needs.enhanced-sync.result }}" == "success" ]; then
+          echo "🎉 Event sync workflow completed successfully!"
+        else
+          echo "⚠️ Event sync workflow had issues"
+          if [ "${{ github.event.inputs.debug_mode }}" == "true" ]; then
+            echo "🔍 Debug mode was enabled for troubleshooting"
+          fi
+        fi

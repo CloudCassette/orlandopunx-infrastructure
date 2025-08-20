@@ -9,6 +9,7 @@ Comprehensive Event Data Monitoring System
 """
 
 import requests
+import os
 import json
 import time
 import os
@@ -19,8 +20,8 @@ import re
 from difflib import SequenceMatcher
 
 class ComprehensiveMonitor:
-    def __init__(self, gancio_base_url="http://localhost:13120"):
-        self.gancio_base_url = gancio_base_url
+    def __init__(self, gancio_base_url=None):
+        self.gancio_base_url = gancio_base_url or os.getenv("GANCIO_BASE_URL", "http://localhost:13120")
         self.alerts = []
         self.report_data = {}
         

@@ -1,0 +1,78 @@
+name: Simple Gancio Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type to run'
+        required: false
+        default: 'connectivity'
+        type: choice
+        options:
+        - connectivity
+        - authentication
+        - full
+
+env:
+  GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+  GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+  GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL || 'http://localhost:13120' }}
+
+jobs:
+  diagnostic:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      run: |
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install requests
+    
+    - name: Environment Check
+      run: |
+        echo "🔍 Environment Diagnostics:"
+        echo "Runner: $(hostname)"
+        echo "User: $(whoami)"  
+        echo "Working Directory: $(pwd)"
+        echo "Python: $(python3 --version)"
+        echo "GANCIO_BASE_URL: $GANCIO_BASE_URL"
+        echo "GANCIO_EMAIL: ${GANCIO_EMAIL:+[SET]}"
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:+[SET]}"
+        
+        echo -e "\n🌐 Network Tests:"
+        ping -c 1 localhost && echo "✅ Localhost ping OK" || echo "❌ Localhost ping failed"
+        
+        echo -e "\n🔍 Port Check:"
+        netstat -tlnp | grep :13120 && echo "✅ Port 13120 is listening" || echo "❌ Port 13120 not found"
+        
+        echo -e "\n📡 Gancio API Test:"
+        curl -f -s -m 5 "${GANCIO_BASE_URL}/api/events" > /dev/null && echo "✅ Gancio API accessible" || echo "❌ Gancio API not accessible"
+        
+        if curl -f -s -m 5 "${GANCIO_BASE_URL}/api/events" > /dev/null; then
+          EVENT_COUNT=$(curl -s "${GANCIO_BASE_URL}/api/events" | jq length 2>/dev/null || echo "unknown")
+          echo "📊 Events in Gancio: $EVENT_COUNT"
+        fi
+    
+    - name: Run Diagnostic Script
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
+        python3 github_actions_diagnostics.py
+    
+    - name: Test Monitoring System
+      if: github.event.inputs.test_type == 'full'
+      run: |
+        cd scripts/event-sync  
+        source ../../venv/bin/activate
+        
+        export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
+        
+        echo "🔍 Testing comprehensive monitoring system..."
+        python3 comprehensive_monitoring_system.py --ci-mode || echo "Monitoring system test failed"
