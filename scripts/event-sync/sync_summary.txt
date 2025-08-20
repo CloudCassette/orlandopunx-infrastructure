@@ -1,19 +1,60 @@
-Multi-Venue Sync Summary
-========================
-Timestamp: 2025-08-19 01:26:22
+Will's Pub Sync Summary - 2025-08-19 16:28:46.245505
+==================================================
+Total events scraped: 20
+New events found: 13
+Duplicates filtered: 7
 
-Will's Pub Events: 20
-Stardust Events: 7
-Total Events: 27
+NEW EVENTS TO REVIEW:
+------------------------------
+1. Indie 900 Jam
+   Date: 2025-08-19
+   URL: https://willspub.org/tm-event/indie-900-jam-4/
 
-Recent Events:
-- Audubon Park Community Market (Stardust Coffee & Video) - 2025-08-18 17:00
-- Sales Ended (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
-- Buy Tickets (Will's Pub) - 2025-08-20 19:00
+2. Hard Swingin' Country Soiree with Decker & Dimitrov
+   Date: 2025-08-20
+   URL: https://willspub.org/tm-event/hard-swingin-country-soiree-with-decker-dimitrov-3/
+
+3. Official Unofficial &quot;Best Of&quot; Orlando Weekly Party and Award Pick-Up
+   Date: 2025-08-20
+   URL: https://willspub.org/tm-event/official-unofficial-best-of-orlando-weekly-party-and-award-pick-up/
+
+4. Nesto's Jazz Trio
+   Date: 2025-08-20
+   URL: https://willspub.org/tm-event/nestos-jazz-trio-3/
+
+5. Thursday Thinks Trivia
+   Date: 2025-08-21
+   URL: https://willspub.org/tm-event/thursday-thinks-trivia-7/
+
+6. DJ BMF
+   Date: 2025-08-22
+   URL: https://willspub.org/tm-event/dj-bmf-9/
+
+7. Hannah Stokes Band
+   Date: 2025-08-23
+   URL: https://willspub.org/tm-event/hannah-stokes-band/
+
+8. Raspberry Pie - Pop City Album Release Show with Discord Theory
+   Date: 2025-08-23
+   URL: https://willspub.org/tm-event/raspberry-pie-pop-city-album-release-show/
+
+9. Jayo
+   Date: 2025-08-24
+   URL: https://willspub.org/tm-event/jayo-7/
+
+10. Kaleigh Baker
+   Date: 2025-08-25
+   URL: https://willspub.org/tm-event/kaleigh-baker-8/
+
+11. Indie 900 Jam
+   Date: 2025-08-26
+   URL: https://willspub.org/tm-event/indie-900-jam-5/
+
+12. Hard Swingin' Country Soiree with Decker & Dimitrov
+   Date: 2025-08-27
+   URL: https://willspub.org/tm-event/hard-swingin-country-soiree-with-decker-dimitrov-4/
+
+13. Tuesday Again
+   Date: 2025-08-27
+   URL: https://willspub.org/tm-event/tuesday-again-3/
+

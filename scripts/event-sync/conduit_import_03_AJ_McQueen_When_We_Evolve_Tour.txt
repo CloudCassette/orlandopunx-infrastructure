@@ -1,0 +1,18 @@
+CONDUIT EVENT - MANUAL IMPORT #3
+==================================================
+
+Title: AJ McQueen "When We Evolve" Tour
+Date: 2025-08-21
+Time: 19:00
+Venue: Conduit (6700 Aloma Ave)
+Price: $18 and up
+Age: 26.91
+URL: https://www.conduitfl.com/
+
+Description:
+Live music at Conduit. 26.91. Tickets: $18 and up
+
+Flyer: conduit-08.21-AJ-McQueen-When-We-Evolve-Tour.jpg
+(Located in: /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers/)
+
+Original URL: https://www.conduitfl.com/

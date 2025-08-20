@@ -1,0 +1,18 @@
+CONDUIT EVENT - MANUAL IMPORT #13
+==================================================
+
+Title: Angry Zeta and More
+Date: 2025-09-08
+Time: 19:00
+Venue: Conduit (6700 Aloma Ave)
+Price: $18 and up
+Age: 19.90
+URL: https://www.conduitfl.com/
+
+Description:
+Live music at Conduit. 19.90. Tickets: $18 and up
+
+Flyer: conduit-09.08-Angry-Zeta-and-More.jpg
+(Located in: /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers/)
+
+Original URL: https://www.conduitfl.com/
