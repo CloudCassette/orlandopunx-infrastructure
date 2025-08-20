@@ -1,0 +1,218 @@
+name: Enhanced Event Sync with Validation
+
+on:
+  schedule:
+    # Run three times per day
+    - cron: '0 9,15,21 * * *'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if no new events'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+  GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+
+jobs:
+  pre-sync-validation:
+    runs-on: self-hosted
+    outputs:
+      should_continue: ${{ steps.validation.outputs.should_continue }}
+      data_quality_score: ${{ steps.validation.outputs.data_quality_score }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment
+      run: |
+        cd ${{ github.workspace }}
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install requests
+    
+    - name: Pre-sync Data Validation
+      id: validation
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        echo "🔍 Running pre-sync validation..."
+        
+        # Run comprehensive monitoring in CI mode
+        python3 comprehensive_monitoring_system.py --ci-mode --save-report
+        validation_exit_code=$?
+        
+        # Get data quality score
+        if [ -f monitoring_report_*.json ]; then
+          data_quality_score=$(jq -r '.summary.data_quality_score' monitoring_report_*.json)
+          echo "data_quality_score=$data_quality_score" >> $GITHUB_OUTPUT
+        else
+          echo "data_quality_score=0" >> $GITHUB_OUTPUT
+        fi
+        
+        # Decide whether to continue
+        if [ $validation_exit_code -eq 0 ] || [ "${{ github.event.inputs.force_sync }}" == "true" ]; then
+          echo "should_continue=true" >> $GITHUB_OUTPUT
+          echo "✅ Pre-sync validation passed or force sync requested"
+        else
+          echo "should_continue=false" >> $GITHUB_OUTPUT
+          echo "❌ Pre-sync validation failed - stopping workflow"
+        fi
+        
+        exit $validation_exit_code
+
+  enhanced-sync:
+    runs-on: self-hosted
+    needs: pre-sync-validation
+    if: needs.pre-sync-validation.outputs.should_continue == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment and dependencies
+      run: |
+        cd ${{ github.workspace }}
+        if [ ! -d "venv" ]; then
+          python3 -m venv venv
+        fi
+        source venv/bin/activate
+        pip install requests beautifulsoup4 lxml
+    
+    - name: Run Enhanced Sync with Validation
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        echo "🚀 Starting enhanced sync with complete validation..."
+        echo "📊 Pre-sync data quality score: ${{ needs.pre-sync-validation.outputs.data_quality_score }}/100"
+        
+        # Run the enhanced sync script
+        python3 enhanced_sync_with_complete_validation.py
+        sync_exit_code=$?
+        
+        echo "📊 Sync completed with exit code: $sync_exit_code"
+        
+        if [ $sync_exit_code -eq 0 ]; then
+          echo "✅ Enhanced sync completed successfully"
+        else
+          echo "❌ Enhanced sync failed"
+        fi
+        
+        exit $sync_exit_code
+
+  post-sync-validation:
+    runs-on: self-hosted
+    needs: [pre-sync-validation, enhanced-sync]
+    if: always() && needs.pre-sync-validation.outputs.should_continue == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python environment
+      run: |
+        cd ${{ github.workspace }}
+        source venv/bin/activate
+    
+    - name: Post-sync Data Validation
+      run: |
+        cd scripts/event-sync
+        source ../../venv/bin/activate
+        
+        echo "🔍 Running post-sync validation..."
+        
+        # Run comprehensive monitoring
+        python3 comprehensive_monitoring_system.py --save-report
+        
+        # Also run duplicate monitoring
+        python3 duplicate_monitoring.py --once --suggest-cleanup
+        
+        # Check if any new issues were introduced
+        if [ -f monitoring_report_*.json ]; then
+          new_data_quality_score=$(jq -r '.summary.data_quality_score' monitoring_report_*.json)
+          critical_alerts=$(jq -r '.summary.critical_alerts' monitoring_report_*.json)
+          error_alerts=$(jq -r '.summary.error_alerts' monitoring_report_*.json)
+          
+          echo "📊 Post-sync data quality score: $new_data_quality_score/100"
+          echo "🚨 Critical alerts: $critical_alerts"
+          echo "❌ Error alerts: $error_alerts"
+          
+          if [ "$critical_alerts" -gt 0 ]; then
+            echo "🚨 CRITICAL: Post-sync validation found critical issues!"
+            exit 2
+          elif [ "$error_alerts" -gt 0 ]; then
+            echo "❌ ERROR: Post-sync validation found errors!"
+            exit 1
+          else
+            echo "✅ Post-sync validation passed"
+          fi
+        fi
+
+  flyer-delivery:
+    runs-on: self-hosted
+    needs: [enhanced-sync, post-sync-validation]
+    if: success()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deliver flyers to local site
+      run: |
+        cd scripts/event-sync
+        
+        echo "📸 Delivering flyers to local site..."
+        
+        # Count flyers before delivery
+        RUNNER_FLYER_COUNT=$(find flyers -name "*.jpg" -o -name "*.png" -o -name "*.gif" 2>/dev/null | wc -l || echo "0")
+        echo "📊 Runner workspace flyers: $RUNNER_FLYER_COUNT"
+        
+        # Ensure flyer delivery directory exists
+        mkdir -p /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers
+        
+        # Copy flyers from runner workspace to local web server directory
+        if [ "$RUNNER_FLYER_COUNT" -gt 0 ]; then
+          rsync -av --update flyers/ /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers/
+          echo "✅ Flyers delivered via rsync"
+        else
+          echo "ℹ️ No flyers to deliver"
+        fi
+        
+        # Count flyers after delivery
+        LOCAL_FLYER_COUNT=$(find /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers -name "*.jpg" -o -name "*.png" -o -name "*.gif" 2>/dev/null | wc -l || echo "0")
+        echo "📊 Local site flyers: $LOCAL_FLYER_COUNT"
+        
+        # Verify flyer web server is accessible
+        if curl -f -s http://192.168.86.4:8081/ > /dev/null; then
+          echo "✅ Flyer gallery site is accessible"
+        else
+          echo "⚠️ Flyer gallery site may not be running"
+        fi
+
+  notification:
+    runs-on: self-hosted
+    needs: [pre-sync-validation, enhanced-sync, post-sync-validation, flyer-delivery]
+    if: always()
+    
+    steps:
+    - name: Send notification summary
+      run: |
+        echo "📊 Workflow Summary:"
+        echo "Pre-sync validation: ${{ needs.pre-sync-validation.result }}"
+        echo "Enhanced sync: ${{ needs.enhanced-sync.result }}"
+        echo "Post-sync validation: ${{ needs.post-sync-validation.result }}"
+        echo "Flyer delivery: ${{ needs.flyer-delivery.result }}"
+        
+        if [ "${{ needs.enhanced-sync.result }}" == "success" ]; then
+          echo "🎉 Event sync workflow completed successfully!"
+        else
+          echo "⚠️ Event sync workflow had issues"
+        fi
+        
+        # Here you could add actual notification logic
+        # (email, Slack, Discord, etc.)
