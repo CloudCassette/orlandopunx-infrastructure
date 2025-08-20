@@ -57,7 +57,7 @@ jobs:
         echo "GANCIO_PASSWORD set: ${GANCIO_PASSWORD:+YES}"
         
         # Run the working automated sync
-        python3 automated_sync_working_fixed.py
+        python3 automated_sync_working.py
         
         echo "✅ Orlando events sync completed via GitHub Actions"
         
