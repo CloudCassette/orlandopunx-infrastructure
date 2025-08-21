@@ -1,0 +1,60 @@
+{
+  "timestamp": "2025-08-20T21:17:06.174300",
+  "summary": {
+    "total_events": 17,
+    "total_alerts": 0,
+    "critical_alerts": 0,
+    "error_alerts": 0,
+    "warning_alerts": 0,
+    "data_quality_score": 100
+  },
+  "duplicates": {
+    "exact_duplicate_groups": 0,
+    "fuzzy_duplicate_pairs": 0,
+    "suspicious_patterns": 0
+  },
+  "venue_validation": {
+    "null_place_events": 0,
+    "null_place_name_events": 0,
+    "empty_place_name_events": 0,
+    "invalid_place_id_events": 0,
+    "venue_count": 4
+  },
+  "data_integrity": {
+    "missing_title_events": 0,
+    "missing_datetime_events": 0,
+    "invalid_datetime_events": 0,
+    "old_events": 0,
+    "future_events": 0
+  },
+  "alerts": [],
+  "detailed_results": {
+    "duplicates": {
+      "exact_duplicates": {},
+      "fuzzy_duplicates": [],
+      "suspicious_patterns": []
+    },
+    "venue_validation": {
+      "total_events": 17,
+      "events_with_null_place": [],
+      "events_with_null_place_name": [],
+      "events_with_empty_place_name": [],
+      "events_with_invalid_place_id": [],
+      "venue_distribution": {
+        "Will's Pub ": 13,
+        "Stardust Video & Coffee": 2,
+        "Conduit": 1,
+        "Sly Fox": 1
+      },
+      "orphaned_events": []
+    },
+    "data_integrity": {
+      "events_missing_title": [],
+      "events_missing_datetime": [],
+      "events_with_invalid_datetime": [],
+      "events_in_past": [],
+      "events_far_future": [],
+      "data_quality_score": 100
+    }
+  }
+}
