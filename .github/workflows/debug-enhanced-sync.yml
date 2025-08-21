@@ -76,7 +76,7 @@ jobs:
         pip install --upgrade pip --verbose
         
         # Install dependencies with verbose output
-        pip install requests beautifulsoup4 lxml --verbose
+        pip install -r ../../requirements.txt --verbose
         
         # Verify installations
         echo "📦 Installed packages:"

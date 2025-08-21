@@ -25,7 +25,7 @@ jobs:
       run: |
         echo "📦 Installing dependencies..."
         source venv/bin/activate
-        pip install requests beautifulsoup4 lxml
+        pip install -r requirements.txt
         pip list | grep -E "(requests|beautifulsoup4|lxml)"
         echo "✅ Dependencies installed"
     

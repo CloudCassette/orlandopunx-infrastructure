@@ -383,7 +383,7 @@ jobs:
         echo "   - File permission issues (check script executable permissions)"
         echo ""
         echo "🔧 COMMON FIXES:"
-        echo "- Missing modules: Run 'pip install requests beautifulsoup4 lxml'"
+        echo "- Missing modules: Run 'pip install -r requirements.txt'"
         echo "- Permission errors: Run 'chmod +x scripts/event-sync/*.py'"
         echo "- Network issues: Check if Gancio is running and accessible"
         echo "- Missing secrets: Go to Repository Settings → Secrets and Variables → Actions"
