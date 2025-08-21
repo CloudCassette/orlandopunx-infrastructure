@@ -1,0 +1,18 @@
+CONDUIT EVENT - MANUAL IMPORT #12
+==================================================
+
+Title: Quannnic in Orlando
+Date: 2025-09-06
+Time: 19:00
+Venue: Conduit (6700 Aloma Ave)
+Price: $All Ages
+Age: 26.91
+URL: https://www.conduitfl.com/
+
+Description:
+Live music at Conduit. 26.91. Tickets: $All Ages
+
+Flyer: conduit-09.06-Quannnic-in-Orlando.jpg
+(Located in: /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers/)
+
+Original URL: https://www.conduitfl.com/

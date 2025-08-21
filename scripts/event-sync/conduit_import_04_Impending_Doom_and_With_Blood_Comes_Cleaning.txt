@@ -1,0 +1,18 @@
+CONDUIT EVENT - MANUAL IMPORT #4
+==================================================
+
+Title: Impending Doom and With Blood Comes Cleaning
+Date: 2025-08-22
+Time: 19:00
+Venue: Conduit (6700 Aloma Ave)
+Price: $18 and up
+Age: 26.91
+URL: https://www.conduitfl.com/
+
+Description:
+Live music at Conduit. 26.91. Tickets: $18 and up
+
+Flyer: conduit-08.22-Impending-Doom-and-With-Blood-Comes-Cleaning.jpg
+(Located in: /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers/)
+
+Original URL: https://www.conduitfl.com/

@@ -17,7 +17,7 @@ import hashlib
 import getpass
 
 # Import our fixed scraper functions
-from enhanced_multi_venue_sync_fixed import scrape_willspub_events, scrape_stardust_events
+from enhanced_multi_venue_sync_fixed import main as scrape_all_venues
 
 class FixedGancioSync:
     def __init__(self):
@@ -108,7 +108,7 @@ def main():
     
     # Scrape events using our fixed scraper
     print("📥 Scraping events from Will's Pub...")
-    events = scrape_willspub_events()
+    events = scrape_all_venues()
     
     if not events:
         print("📭 No events found to sync")

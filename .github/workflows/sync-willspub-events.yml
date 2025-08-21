@@ -13,6 +13,28 @@ jobs:
     steps:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python Environment
+      run: |
+        cd scripts/event-sync
+        
+        echo "🐍 Setting up Python environment..."
+        
+        # Create virtual environment if it doesn't exist
+        if [ ! -d "venv" ]; then
+          echo "Creating virtual environment..."
+          python3 -m venv venv
+        fi
+        
+        # Activate virtual environment
+        source venv/bin/activate
+        
+        # Install/update dependencies
+        echo "Installing dependencies..."
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        
+        echo "✅ Python environment ready"
       
     - name: 🎸 Orlando Events Sync (Complete Pipeline)
       env:
@@ -29,12 +51,18 @@ jobs:
         # Activate virtual environment
         source venv/bin/activate
         
+        # Verify environment
+        echo "Python version: $(python --version)"
+        echo "GANCIO_EMAIL set: ${GANCIO_EMAIL:+YES}" 
+        echo "GANCIO_PASSWORD set: ${GANCIO_PASSWORD:+YES}"
+        
         # Run the working automated sync
-        python3 automated_sync_working.py
+        python3 automated_sync_working_fixed.py
         
         echo "✅ Orlando events sync completed via GitHub Actions"
         
     - name: 📁 Archive Results
+      if: always()
       run: |
         cd scripts/event-sync
         

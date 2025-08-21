@@ -81,3 +81,6 @@ scripts/event-sync/*.html
 scripts/event-sync/debug_*.py
 scripts/event-sync/test_*.py
 scripts/event-sync/*_test.py
+scripts/event-sync/flyers/
+# Event flyers (binary assets served locally)
+flyers/

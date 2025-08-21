@@ -1,0 +1,18 @@
+CONDUIT EVENT - MANUAL IMPORT #6
+==================================================
+
+Title: Wyndrider, Bunaand, and Graveyard Dogs
+Date: 2025-08-26
+Time: 19:00
+Venue: Conduit (6700 Aloma Ave)
+Price: $18 and up
+Age: 19.90
+URL: https://www.conduitfl.com/
+
+Description:
+Live music at Conduit. 19.90. Tickets: $18 and up
+
+Flyer: conduit-08.26-Wyndrider-Bunaand-and-Graveyard-Dogs.jpg
+(Located in: /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers/)
+
+Original URL: https://www.conduitfl.com/

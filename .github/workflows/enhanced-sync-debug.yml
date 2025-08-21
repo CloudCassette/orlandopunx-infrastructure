@@ -1,0 +1,191 @@
+name: Enhanced Event Sync with Advanced Debugging
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+
+jobs:
+  debug-and-sync:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Create Python Virtual Environment
+      run: |
+        echo "🔧 Setting up Python environment..."
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        echo "✅ Virtual environment created"
+    
+    - name: Install Dependencies
+      run: |
+        echo "📦 Installing dependencies..."
+        source venv/bin/activate
+        pip install requests beautifulsoup4 lxml
+        pip list | grep -E "(requests|beautifulsoup4|lxml)"
+        echo "✅ Dependencies installed"
+    
+    - name: Run Advanced Diagnostics
+      env:
+        GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL }}
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+      run: |
+        echo "🚀 Starting advanced diagnostics..."
+        source venv/bin/activate
+        python3 scripts/event-sync/advanced_github_actions_debug.py
+    
+    - name: Basic System Info
+      run: |
+        echo "🔍 SYSTEM INFORMATION:"
+        echo "Hostname: $(hostname)"
+        echo "User: $(whoami)"
+        echo "Working Directory: $(pwd)"
+        echo "Python version: $(python3 --version)"
+        echo "Network interfaces:"
+        ip addr show | grep -E "inet|UP"
+        
+    - name: Test Network Connectivity (Without Auth)
+      env:
+        GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL }}
+      run: |
+        echo "🌐 Testing basic network connectivity..."
+        echo "Testing URL: $GANCIO_BASE_URL"
+        
+        # Parse host and port from URL
+        HOST=$(echo "$GANCIO_BASE_URL" | sed -E 's|https?://([^/:]+).*|\1|')
+        PORT=$(echo "$GANCIO_BASE_URL" | sed -E 's|.*:([0-9]+).*|\1|' | head -1)
+        
+        echo "Host: $HOST"
+        echo "Port: $PORT"
+        
+        # Test basic connectivity
+        echo "Testing ping to host..."
+        ping -c 3 "$HOST" || echo "Ping failed"
+        
+        echo "Testing port connectivity..."
+        timeout 10 bash -c "</dev/tcp/$HOST/$PORT" && echo "Port $PORT is open" || echo "Port $PORT connection failed"
+        
+        # Test HTTP endpoints
+        echo "Testing HTTP endpoints..."
+        curl -v --max-time 10 --fail "$GANCIO_BASE_URL/" || echo "Root endpoint failed"
+        curl -v --max-time 10 --fail "$GANCIO_BASE_URL/api/events" || echo "Events API failed"
+    
+    - name: Manual Authentication Test
+      env:
+        GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL }}
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+      run: |
+        echo "🔐 Manual authentication test..."
+        source venv/bin/activate
+        
+        python3 -c "
+import requests
+import os
+import sys
+
+base_url = os.getenv('GANCIO_BASE_URL')
+email = os.getenv('GANCIO_EMAIL')  
+password = os.getenv('GANCIO_PASSWORD')
+
+print(f'Base URL: {base_url}')
+print(f'Email: {email}')
+print(f'Password: {\"[SET]\" if password else \"[NOT SET]\"}')
+
+session = requests.Session()
+
+try:
+    print('\\n1. Testing login page access...')
+    login_resp = session.get(f'{base_url}/login', timeout=30)
+    print(f'Login page status: {login_resp.status_code}')
+    
+    print('\\n2. Attempting authentication...')
+    auth_resp = session.post(
+        f'{base_url}/auth/login',
+        data={'email': email, 'password': password},
+        timeout=30,
+        allow_redirects=True
+    )
+    print(f'Auth status: {auth_resp.status_code}')
+    print(f'Final URL: {auth_resp.url}')
+    
+    if 'admin' in auth_resp.url.lower():
+        print('✅ Authentication successful!')
+        
+        print('\\n3. Testing API access...')
+        api_resp = session.get(f'{base_url}/api/events', timeout=30)
+        print(f'API status: {api_resp.status_code}')
+        
+        if api_resp.status_code == 200:
+            events = api_resp.json()
+            print(f'✅ API access successful - {len(events)} events found')
+        else:
+            print('❌ API access failed')
+    else:
+        print('❌ Authentication failed')
+        print(f'Response preview: {auth_resp.text[:500]}')
+        
+except Exception as e:
+    print(f'❌ Error during authentication: {e}')
+    sys.exit(1)
+"
+    
+    - name: Check Docker/Gancio Service Status
+      run: |
+        echo "🐳 Checking Docker and Gancio service status..."
+        
+        # Check if Docker is running
+        docker --version || echo "Docker not available"
+        docker ps -a | grep -i gancio || echo "No Gancio containers found"
+        
+        # Check if Gancio process is running
+        ps aux | grep -i gancio || echo "No Gancio processes found"
+        
+        # Check listening ports
+        echo "Listening ports:"
+        netstat -tlnp | grep -E "(13120|3000|8080)" || echo "No expected ports listening"
+    
+    - name: Run Enhanced Sync Script (If Diagnostics Pass)
+      env:
+        GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL }}
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+      run: |
+        echo "🔄 Attempting to run sync script..."
+        source venv/bin/activate
+        
+        # Check if enhanced sync script exists
+        if [ -f "scripts/event-sync/enhanced_sync_with_complete_validation.py" ]; then
+          echo "Found enhanced sync script"
+          python3 scripts/event-sync/enhanced_sync_with_complete_validation.py
+        elif [ -f "scripts/event-sync/automated_sync_working_fixed_with_venue_enforcement.py" ]; then
+          echo "Found venue enforcement sync script"
+          python3 scripts/event-sync/automated_sync_working_fixed_with_venue_enforcement.py
+        else
+          echo "❌ No sync script found"
+          ls -la scripts/event-sync/
+          exit 1
+        fi
+    
+    - name: Summary and Next Steps
+      if: always()
+      run: |
+        echo "📊 WORKFLOW SUMMARY:"
+        echo "====================="
+        echo "✅ Environment setup completed"
+        echo "✅ Dependencies installed"
+        echo "✅ Diagnostics executed"
+        echo "✅ Authentication tested"
+        
+        echo ""
+        echo "💡 If this workflow fails:"
+        echo "1. Check the diagnostic output above for specific errors"
+        echo "2. Verify Gancio service is running and accessible"
+        echo "3. Confirm GANCIO_BASE_URL, GANCIO_EMAIL, GANCIO_PASSWORD secrets"
+        echo "4. Check firewall/network configuration between runner and Gancio"
+        echo "5. Review Docker container logs if applicable"

@@ -1,0 +1,18 @@
+CONDUIT EVENT - MANUAL IMPORT #14
+==================================================
+
+Title: KAYKO "Manic Pixie Dream Girl Tour" 2025
+Date: 2025-09-10
+Time: 19:00
+Venue: Conduit (6700 Aloma Ave)
+Price: $18 and up
+Age: 26.91
+URL: https://www.conduitfl.com/
+
+Description:
+Live music at Conduit. 26.91. Tickets: $18 and up
+
+Flyer: conduit-09.10-KAYKO-Manic-Pixie-Dream-Girl-Tour-2025.jpg
+(Located in: /home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync/flyers/)
+
+Original URL: https://www.conduitfl.com/

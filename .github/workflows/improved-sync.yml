@@ -1,0 +1,165 @@
+name: 🎸 Orlando Events Sync (Enhanced Debug)
+
+on:
+  schedule:
+    - cron: '0 9,15,21 * * *'  # Run 3 times daily: 9am, 3pm, 9pm EST
+  workflow_dispatch:
+    inputs:
+      debug_mode:
+        description: 'Enable debug output'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync-events:
+    runs-on: self-hosted
+    name: 🎵 Sync Events from Orlando Venues (Enhanced)
+    
+    steps:
+    - name: 🔄 Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: 🔍 Pre-Flight Environment Check
+      run: |
+        echo "🖥️  Environment Pre-Check"
+        echo "========================"
+        echo "User: $(whoami)"
+        echo "Working Dir: $(pwd)"
+        echo "Python: $(python3 --version)"
+        echo "Git Commit: $(git rev-parse --short HEAD)"
+        echo ""
+        
+        echo "🔐 Secrets Check:"
+        echo "GANCIO_EMAIL: ${GANCIO_EMAIL:+✅ SET}" 
+        echo "GANCIO_EMAIL: ${GANCIO_EMAIL:-❌ NOT SET}" | grep -q "NOT SET" && echo "❌ GANCIO_EMAIL missing"
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:+✅ SET}"
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:-❌ NOT SET}" | grep -q "NOT SET" && echo "❌ GANCIO_PASSWORD missing"
+        echo "DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:+✅ SET}"
+        echo ""
+        
+        echo "🌐 Service Check:"
+        systemctl is-active gancio && echo "✅ Gancio service active" || echo "❌ Gancio service inactive"
+        curl -s --connect-timeout 5 http://localhost:13120 >/dev/null && echo "✅ Gancio web accessible" || echo "❌ Gancio not accessible"
+        echo ""
+      env:
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+    - name: 🐍 Python Environment Setup Check
+      run: |
+        cd scripts/event-sync
+        
+        echo "🐍 Python Environment Check"
+        echo "==========================="
+        
+        if [ -d "venv" ]; then
+          echo "✅ Virtual environment found"
+          echo "Activating venv..."
+          source venv/bin/activate
+          
+          # Test critical imports
+          python3 -c "
+import requests
+import sys
+from bs4 import BeautifulSoup
+print('✅ Basic imports successful')
+
+try:
+    from enhanced_multi_venue_sync import scrape_willspub_events
+    print('✅ Enhanced sync import successful')
+except Exception as e:
+    print(f'❌ Enhanced sync import failed: {e}')
+    sys.exit(1)
+    
+print('🎯 Python environment ready')
+"
+        else
+          echo "❌ Virtual environment missing - attempting to create..."
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+          echo "✅ Virtual environment created"
+        fi
+
+    - name: 🎸 Orlando Events Sync (Main Process)
+      env:
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+        GANCIO_URL: http://localhost:13120
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        cd scripts/event-sync
+        
+        echo "🎸 Starting Enhanced GitHub Actions event sync..."
+        echo "Using the same working script as cron job"
+        
+        # Activate virtual environment
+        source venv/bin/activate
+        
+        # Add debug output if requested
+        if [ "${{ github.event.inputs.debug_mode }}" = "true" ]; then
+          echo "🐛 DEBUG MODE ENABLED"
+          set -x
+        fi
+        
+        # Run the working automated sync with error handling
+        if timeout 300s python3 automated_sync_working.py; then
+          echo "✅ Orlando events sync completed successfully"
+        else
+          exit_code=$?
+          echo "❌ Sync failed with exit code: $exit_code"
+          
+          # Capture some debugging info
+          echo "📊 Debug Information:"
+          echo "Python processes:"
+          ps aux | grep python | grep -v grep || echo "No Python processes"
+          echo "Network connections:"
+          ss -tuln | grep :13120 || echo "No connection on port 13120"
+          echo "Last few lines of any error logs:"
+          tail -20 *.log 2>/dev/null || echo "No log files found"
+          
+          exit $exit_code
+        fi
+        
+    - name: 📁 Archive Results & Summary
+      if: always()
+      run: |
+        cd scripts/event-sync
+        
+        echo ""
+        echo "📊 GitHub Actions Sync Results:"
+        echo "==============================="
+        if [ -f sync_summary.txt ]; then
+          cat sync_summary.txt
+        else
+          echo "⚠️  No sync summary found"
+        fi
+        
+        echo ""
+        echo "🖼️ Flyers Downloaded:"
+        if [ -d flyers ]; then
+          flyer_count=$(ls flyers/ 2>/dev/null | wc -l)
+          echo "$flyer_count flyer files"
+          ls -la flyers/ | tail -5 2>/dev/null || echo "No flyers directory"
+        else
+          echo "No flyers directory found"
+        fi
+        
+        # Archive results with error handling
+        echo ""
+        echo "💾 Archiving results..."
+        mkdir -p ../../backups/orlando-events
+        if [ -f willspub_events.json ]; then
+          cp willspub_events.json ../../backups/orlando-events/willspub_$(date +%Y%m%d_%H%M).json
+          echo "✅ Events archived"
+        fi
+        
+        if [ -d flyers ] && [ "$(ls -A flyers)" ]; then
+          mkdir -p ../../backups/orlando-flyers  
+          cp -r flyers ../../backups/orlando-flyers/flyers_$(date +%Y%m%d_%H%M)/
+          echo "✅ Flyers archived"
+        fi
+        
+        echo "🎯 Enhanced GitHub Actions automation pipeline completed!"

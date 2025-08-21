@@ -1,0 +1,219 @@
+name: Debug Enhanced Event Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug_level:
+        description: 'Debug verbosity level'
+        required: true
+        default: '2'
+        type: choice
+        options:
+        - '1'
+        - '2' 
+        - '3'
+      test_mode:
+        description: 'Run in test mode (no actual changes)'
+        required: false
+        default: false
+        type: boolean
+      force_sync:
+        description: 'Force sync even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  ACTIONS_STEP_DEBUG: true
+  RUNNER_DEBUG: 1
+  GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL }}
+  GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+  GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+  GANCIO_DEBUG_LEVEL: ${{ github.event.inputs.debug_level }}
+  TEST_MODE: ${{ github.event.inputs.test_mode }}
+  FORCE_SYNC: ${{ github.event.inputs.force_sync }}
+
+jobs:
+  debug-sync:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Debug Environment Setup
+      run: |
+        echo "🔍 DEBUG ENVIRONMENT SETUP"
+        echo "=========================="
+        echo "Debug Level: ${{ github.event.inputs.debug_level }}"
+        echo "Test Mode: ${{ github.event.inputs.test_mode }}"
+        echo "Force Sync: ${{ github.event.inputs.force_sync }}"
+        echo "Runner: $(hostname)"
+        echo "User: $(whoami)"
+        echo "Working Dir: $(pwd)"
+        echo "Timestamp: $(date -Iseconds)"
+        echo ""
+        echo "🌐 Environment Variables (non-sensitive):"
+        env | grep -E "(GANCIO_BASE_URL|GITHUB|ACTIONS|RUNNER)" | sort
+        echo ""
+        echo "🔐 Secret Status:"
+        echo "GANCIO_BASE_URL: ${GANCIO_BASE_URL:+[SET]}"
+        echo "GANCIO_EMAIL: ${GANCIO_EMAIL:+[SET]}"
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:+[SET]}"
+    
+    - name: Create Enhanced Python Environment
+      run: |
+        echo "🐍 Setting up Python environment with debug logging..."
+        
+        # Remove any existing venv
+        rm -rf venv
+        
+        # Create fresh virtual environment
+        python3 -m venv venv
+        source venv/bin/activate
+        
+        # Upgrade pip with verbose output
+        pip install --upgrade pip --verbose
+        
+        # Install dependencies with verbose output
+        pip install requests beautifulsoup4 lxml --verbose
+        
+        # Verify installations
+        echo "📦 Installed packages:"
+        pip list | grep -E "(requests|beautifulsoup4|lxml)"
+        
+        echo "🔍 Python environment details:"
+        python3 --version
+        which python3
+        python3 -c "import sys; print(f'Python path: {sys.executable}')"
+        python3 -c "import requests; print(f'Requests version: {requests.__version__}')"
+    
+    - name: Validate Secrets and Connectivity
+      run: |
+        echo "🔐 Comprehensive secret validation..."
+        source venv/bin/activate
+        python3 scripts/event-sync/validate_github_secrets.py
+    
+    - name: Run Advanced Diagnostics
+      run: |
+        echo "🚀 Running advanced diagnostics with debug level ${{ github.event.inputs.debug_level }}..."
+        source venv/bin/activate
+        python3 scripts/event-sync/advanced_github_actions_debug.py
+    
+    - name: Pre-Sync System Verification  
+      run: |
+        echo "🔍 Pre-sync system verification..."
+        
+        # Check script files exist
+        echo "📁 Checking sync scripts:"
+        find scripts/event-sync -name "*.py" -type f | head -10
+        
+        # Test basic connectivity
+        echo "🌐 Testing connectivity:"
+        curl -f -s --max-time 10 "$GANCIO_BASE_URL/" > /dev/null && echo "✅ Base URL accessible" || echo "❌ Base URL failed"
+        curl -f -s --max-time 10 "$GANCIO_BASE_URL/api/events" > /dev/null && echo "✅ API accessible" || echo "❌ API failed"
+        
+        # Get current event count
+        CURRENT_EVENTS=$(curl -s --max-time 10 "$GANCIO_BASE_URL/api/events" | jq length 2>/dev/null || echo "unknown")
+        echo "📊 Current events in Gancio: $CURRENT_EVENTS"
+    
+    - name: Run Enhanced Sync with Full Debug
+      run: |
+        echo "🔄 Running enhanced sync with debug level ${{ github.event.inputs.debug_level }}..."
+        source venv/bin/activate
+        
+        cd scripts/event-sync
+        
+        # Set debug environment variables
+        export GANCIO_DEBUG_LEVEL="${{ github.event.inputs.debug_level }}"
+        export VERBOSE="true"
+        export DEBUG="true"
+        
+        # Determine which sync script to run
+        SYNC_SCRIPT=""
+        if [ -f "enhanced_sync_with_complete_validation.py" ]; then
+          SYNC_SCRIPT="enhanced_sync_with_complete_validation.py"
+          echo "📄 Using: enhanced_sync_with_complete_validation.py"
+        elif [ -f "automated_sync_working_fixed_with_venue_enforcement.py" ]; then
+          SYNC_SCRIPT="automated_sync_working_fixed_with_venue_enforcement.py"
+          echo "📄 Using: automated_sync_working_fixed_with_venue_enforcement.py"
+        else
+          echo "❌ No suitable sync script found"
+          ls -la *.py
+          exit 1
+        fi
+        
+        # Run sync with appropriate debug flags
+        echo "🚀 Executing: python3 $SYNC_SCRIPT"
+        
+        if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
+          echo "⚠️ RUNNING IN TEST MODE - NO CHANGES WILL BE MADE"
+          python3 "$SYNC_SCRIPT" --test-mode --verbose --debug
+        elif [ "${{ github.event.inputs.force_sync }}" = "true" ]; then
+          echo "🔄 FORCE SYNC ENABLED"
+          python3 "$SYNC_SCRIPT" --force --verbose --debug  
+        else
+          python3 "$SYNC_SCRIPT" --verbose --debug
+        fi
+    
+    - name: Post-Sync Analysis
+      if: always()
+      run: |
+        echo "📊 POST-SYNC ANALYSIS"
+        echo "====================="
+        
+        # Get final event count
+        FINAL_EVENTS=$(curl -s --max-time 10 "$GANCIO_BASE_URL/api/events" | jq length 2>/dev/null || echo "unknown")
+        echo "📊 Final events in Gancio: $FINAL_EVENTS"
+        
+        # Check for log files
+        cd scripts/event-sync
+        if [ -f "sync.log" ]; then
+          echo "📝 Sync log summary:"
+          echo "Last 20 lines:"
+          tail -20 sync.log
+          echo ""
+          echo "Error summary:"
+          grep -i error sync.log || echo "No errors found in sync.log"
+        fi
+        
+        # Check for any Python error outputs
+        if [ -f "error.log" ]; then
+          echo "🐛 Python errors:"
+          cat error.log
+        fi
+        
+        # System resource usage
+        echo "💾 System resources:"
+        echo "Memory usage:"
+        free -h
+        echo "Disk usage:"
+        df -h | head -5
+    
+    - name: Debug Summary Report
+      if: always()
+      run: |
+        echo "📋 DEBUG SUMMARY REPORT"
+        echo "======================="
+        echo "🕐 Workflow completed at: $(date -Iseconds)"
+        echo "🔧 Debug level used: ${{ github.event.inputs.debug_level }}"
+        echo "🧪 Test mode: ${{ github.event.inputs.test_mode }}"
+        echo "🔄 Force sync: ${{ github.event.inputs.force_sync }}"
+        
+        echo ""
+        echo "💡 TROUBLESHOOTING TIPS:"
+        echo "- If authentication failed: Check GANCIO_EMAIL and GANCIO_PASSWORD secrets"
+        echo "- If connection failed: Verify GANCIO_BASE_URL and service status"
+        echo "- If sync failed: Check the sync.log file output above"
+        echo "- For more help: Review the full troubleshooting guide in docs/"
+        
+        echo ""
+        echo "🎯 NEXT STEPS:"
+        if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
+          echo "- Test mode completed successfully"
+          echo "- Run again without test mode to perform actual sync"
+        else
+          echo "- Check the event count change to verify sync success"
+          echo "- Review any error messages above"
+          echo "- Consider running in test mode first if issues occurred"
+        fi

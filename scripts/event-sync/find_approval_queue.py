@@ -7,18 +7,19 @@ This will help locate exactly where events go for approval
 
 import requests
 import json
+import os
 import getpass
 from datetime import datetime
 
 def find_approval_queue():
-    base_url = "http://localhost:13120"
+    base_url = "https://orlandopunx.com"
     
     print("🔍 FINDING GANCIO APPROVAL QUEUE")
     print("="*50)
     
     # Get admin credentials
     email = "godlessamericarecords@gmail.com"
-    password = getpass.getpass("Enter your Gancio password: ")
+    password = os.getenv("GANCIO_PASSWORD") or getpass.getpass("Enter your Gancio password: ")
     
     session = requests.Session()
     session.headers.update({

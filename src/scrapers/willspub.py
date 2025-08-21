@@ -22,6 +22,12 @@ import os
 from urllib.parse import urljoin, urlparse
 import hashlib
 
+# Import venue scrapers
+from conduit_scraper import scrape_conduit_events
+
+# Import venue scrapers
+from conduit_scraper import scrape_conduit_events
+
 def parse_willspub_datetime(date_text, time_text):
     """Parse Will's Pub date and time format"""
     event_date = "2025-08-20"  # default
@@ -440,9 +446,12 @@ def main():
     
     print("\n🌟 SCRAPING STARDUST...")
     stardust_events = scrape_stardust_events()
+
+    print("\n🎸 SCRAPING CONDUIT...")
+    conduit_events = scrape_conduit_events(download_images=True)
     
     # Combine events
-    all_events = willspub_events + stardust_events
+    all_events = willspub_events + stardust_events + conduit_events
     
     # Sort all events by date
     all_events.sort(key=lambda x: f"{x['date']} {x['time']}")
@@ -451,6 +460,7 @@ def main():
     print(f"==================")
     print(f"🎸 Will's Pub: {len(willspub_events)} events")
     print(f"🌟 Stardust: {len(stardust_events)} events")
+    print(f"🎸 Conduit: {len(conduit_events)} events")
     print(f"📅 Total: {len(all_events)} events")
     
     # Save results
@@ -463,6 +473,8 @@ def main():
         json.dump(willspub_events, f, indent=2)
     with open('stardust_events_fixed.json', 'w') as f:
         json.dump(stardust_events, f, indent=2)
+    with open('conduit_events_fixed.json', 'w') as f:
+        json.dump(conduit_events, f, indent=2)
     
     # Generate summary file
     with open('sync_summary_fixed.txt', 'w') as f:

@@ -1,0 +1,194 @@
+name: 🔧 Debug Event Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug_level:
+        description: 'Debug verbosity level'
+        required: false
+        default: 'basic'
+        type: choice
+        options:
+        - basic
+        - detailed
+        - full
+
+jobs:
+  debug-environment:
+    runs-on: self-hosted
+    name: 🔍 Debug Sync Environment
+    
+    steps:
+    - name: 🔄 Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Basic Environment Check
+      run: |
+        echo "🖥️  System Information:"
+        echo "===================="
+        echo "Working directory: $(pwd)"
+        echo "User: $(whoami)"
+        echo "Python version: $(python3 --version)"
+        echo "Git branch: $(git branch --show-current)"
+        echo "Git commit: $(git rev-parse --short HEAD)"
+        echo ""
+        
+        echo "📁 Directory Structure:"
+        echo "====================="
+        ls -la scripts/event-sync/ | head -10
+        echo ""
+        
+        echo "🔐 Environment Variables:"
+        echo "========================"
+        echo "GANCIO_EMAIL: ${GANCIO_EMAIL:-'❌ NOT SET'}"
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:+✅ SET}" 
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:-'❌ NOT SET'}" | sed 's/GANCIO_PASSWORD: .*/GANCIO_PASSWORD: ❌ NOT SET/'
+        echo "DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:+✅ SET}"
+        echo "DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-'❌ NOT SET'}" | sed 's/DISCORD_WEBHOOK_URL: .*/DISCORD_WEBHOOK_URL: ❌ NOT SET/'
+        echo ""
+        
+    - name: 🐍 Python Environment Check
+      run: |
+        echo "🐍 Python Environment:"
+        echo "====================="
+        which python3
+        cd scripts/event-sync
+        
+        echo "Virtual environment status:"
+        if [ -d "venv" ]; then
+          echo "✅ venv directory exists"
+          ls -la venv/bin/ | grep -E "(python|pip|activate)" || echo "❌ Missing expected executables"
+        else
+          echo "❌ venv directory missing"
+        fi
+        
+        echo ""
+        echo "Python packages (system):"
+        python3 -m pip list | grep -E "(requests|beautifulsoup4|selenium)" || echo "❌ Missing required packages"
+        
+    - name: 🌐 Network & Service Check
+      run: |
+        echo "🌐 Network & Services:"
+        echo "====================="
+        
+        echo "Gancio service status:"
+        systemctl is-active gancio 2>/dev/null && echo "✅ Gancio service is active" || echo "❌ Gancio service not active"
+        
+        echo "Port 13120 status:"
+        ss -tuln | grep :13120 && echo "✅ Port 13120 is listening" || echo "❌ Port 13120 not available"
+        
+        echo "HTTP connectivity test:"
+        if curl -s --connect-timeout 5 http://localhost:13120 >/dev/null 2>&1; then
+          echo "✅ Gancio web interface accessible"
+          curl -s http://localhost:13120/api/events 2>/dev/null | head -c 100 && echo "..." || echo "❌ API not responding"
+        else
+          echo "❌ Cannot connect to http://localhost:13120"
+        fi
+        echo ""
+        
+    - name: 📝 Detailed Debug (if requested)
+      if: ${{ github.event.inputs.debug_level == 'detailed' || github.event.inputs.debug_level == 'full' }}
+      run: |
+        cd scripts/event-sync
+        
+        echo "📝 Detailed Debug Information:"
+        echo "============================="
+        
+        echo "Recent sync files:"
+        ls -la *.json *.txt 2>/dev/null | tail -5 || echo "No recent files found"
+        echo ""
+        
+        echo "Sync summary (if exists):"
+        if [ -f "sync_summary.txt" ]; then
+          echo "--- sync_summary.txt ---"
+          head -20 sync_summary.txt
+          echo "--- end sync_summary.txt ---"
+        else
+          echo "No sync_summary.txt found"
+        fi
+        echo ""
+        
+        echo "Event files status:"
+        for file in willspub_events.json combined_events.json conduit_events.json; do
+          if [ -f "$file" ]; then
+            echo "✅ $file exists ($(wc -l < $file) lines)"
+          else
+            echo "❌ $file missing"
+          fi
+        done
+        
+    - name: 🔧 Full Debug & Test Run (if requested)
+      if: ${{ github.event.inputs.debug_level == 'full' }}
+      env:
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+        GANCIO_URL: http://localhost:13120
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        cd scripts/event-sync
+        
+        echo "🔧 Full Debug Test:"
+        echo "=================="
+        
+        if [ -d "venv" ]; then
+          echo "Activating virtual environment..."
+          source venv/bin/activate
+          
+          echo "Testing script execution (dry run)..."
+          timeout 30s python3 -c "
+import requests
+import sys
+import os
+
+# Test basic imports
+try:
+    from enhanced_multi_venue_sync import scrape_willspub_events
+    print('✅ Enhanced multi venue sync import successful')
+except Exception as e:
+    print(f'❌ Import failed: {e}')
+
+# Test Gancio connection
+try:
+    response = requests.get('http://localhost:13120/api/events', timeout=5)
+    if response.status_code == 200:
+        events = response.json()
+        print(f'✅ Gancio API accessible, found {len(events)} events')
+    else:
+        print(f'❌ Gancio API returned status {response.status_code}')
+except Exception as e:
+    print(f'❌ Gancio connection failed: {e}')
+
+# Test environment variables
+email = os.getenv('GANCIO_EMAIL')
+password = os.getenv('GANCIO_PASSWORD')
+if email and password:
+    print('✅ Required environment variables are set')
+else:
+    print('❌ Missing required environment variables')
+    
+print('🎯 Dry run completed successfully')
+" 2>&1 || echo "❌ Test script failed or timed out"
+          
+        else
+          echo "❌ Cannot run test - virtual environment missing"
+        fi
+        
+    - name: 📊 Summary
+      if: always()
+      run: |
+        echo ""
+        echo "🎯 Debug Summary:"
+        echo "================"
+        echo "This debug workflow helps identify issues with the GitHub Actions environment."
+        echo "Check the output above for any ❌ markers indicating problems."
+        echo ""
+        echo "Common fixes:"
+        echo "• Ensure secrets are configured in repository settings"
+        echo "• Verify Gancio service is running on the self-hosted runner"
+        echo "• Check virtual environment is properly set up"
+        echo "• Confirm network connectivity to localhost:13120"
+        echo ""
+        echo "Next steps:"
+        echo "• Run 'basic' debug first, then 'detailed' or 'full' as needed"
+        echo "• Compare with local environment where script works"
+        echo "• Check runner service logs if needed"
