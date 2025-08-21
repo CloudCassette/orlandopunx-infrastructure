@@ -123,7 +123,7 @@ jobs:
         export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
         
         # Run the working sync script
-        python3 automated_sync_working.py
+        python3 automated_sync_working_multi_venue.py
         sync_result=$?
         
         if [ $sync_result -eq 0 ]; then
