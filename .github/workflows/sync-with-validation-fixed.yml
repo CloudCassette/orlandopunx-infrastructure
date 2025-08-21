@@ -91,34 +91,8 @@ jobs:
         # Test authentication if credentials are provided
         if [ -n "$GANCIO_EMAIL" ] && [ -n "$GANCIO_PASSWORD" ]; then
           echo "🔐 Testing Gancio authentication..."
-          # Create a simple auth test
-          python3 -c "
-import requests
-import os
-
-base_url = os.getenv('GANCIO_BASE_URL', 'http://localhost:13120')
-email = os.getenv('GANCIO_EMAIL')
-password = os.getenv('GANCIO_PASSWORD')
-
-session = requests.Session()
-try:
-    # Get login page
-    session.get(f'{base_url}/login')
-    # Try login
-    response = session.post(f'{base_url}/auth/login', data={
-        'email': email, 'password': password
-    }, allow_redirects=True)
-    
-    if 'admin' in response.url or response.status_code == 200:
-        print('✅ Gancio authentication successful')
-    else:
-        print(f'❌ Gancio authentication failed: {response.status_code}')
-        print(f'Response URL: {response.url}')
-        exit(1)
-except Exception as e:
-    print(f'❌ Authentication test error: {e}')
-    exit(1)
-"
+          # Create a simple auth test using inline Python
+          python3 -c "import requests; import os; base_url = os.getenv('GANCIO_BASE_URL', 'http://localhost:13120'); email = os.getenv('GANCIO_EMAIL'); password = os.getenv('GANCIO_PASSWORD'); session = requests.Session(); session.get(f'{base_url}/login'); response = session.post(f'{base_url}/auth/login', data={'email': email, 'password': password}, allow_redirects=True); print('✅ Gancio authentication successful') if 'admin' in response.url or response.status_code == 200 else print(f'❌ Gancio authentication failed: {response.status_code}') or exit(1)"
         else
           echo "⚠️ No Gancio credentials provided, skipping auth test"
         fi
