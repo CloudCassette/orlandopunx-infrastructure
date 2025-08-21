@@ -1,0 +1,394 @@
+name: Emergency Debug Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug_target:
+        description: 'What to debug'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+        - environment
+        - network
+        - secrets
+        - scripts
+        - full
+      include_sensitive_info:
+        description: 'Include potentially sensitive debug info'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  ACTIONS_STEP_DEBUG: true
+  ACTIONS_RUNNER_DEBUG: true
+
+jobs:
+  emergency-debug:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Emergency System Analysis
+      run: |
+        echo "🚨 EMERGENCY DEBUG ANALYSIS"
+        echo "==========================="
+        echo "Debug Target: ${{ github.event.inputs.debug_target }}"
+        echo "Timestamp: $(date -Iseconds)"
+        echo "Workflow Run ID: ${{ github.run_id }}"
+        echo "Workflow Run Number: ${{ github.run_number }}"
+        echo ""
+        
+        # Always check basics
+        echo "🔍 BASIC SYSTEM INFO:"
+        echo "Hostname: $(hostname)"
+        echo "User: $(whoami)" 
+        echo "UID/GID: $(id)"
+        echo "Working Directory: $(pwd)"
+        echo "Python: $(python3 --version 2>/dev/null || echo 'Not found')"
+        echo "Shell: $SHELL"
+        echo "Umask: $(umask)"
+        echo ""
+        
+        # Check GitHub Actions specific environment
+        echo "🎭 GITHUB ACTIONS ENVIRONMENT:"
+        echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE:-[NOT SET]}"
+        echo "GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-[NOT SET]}"
+        echo "GITHUB_REF: ${GITHUB_REF:-[NOT SET]}"
+        echo "GITHUB_SHA: ${GITHUB_SHA:-[NOT SET]}"
+        echo "RUNNER_OS: ${RUNNER_OS:-[NOT SET]}"
+        echo "RUNNER_TEMP: ${RUNNER_TEMP:-[NOT SET]}"
+        echo ""
+        
+    - name: Environment Debug
+      if: github.event.inputs.debug_target == 'environment' || github.event.inputs.debug_target == 'full'
+      run: |
+        echo "🔍 ENVIRONMENT DEEP DIVE:"
+        echo "========================="
+        
+        echo "📍 PATH Analysis:"
+        echo "$PATH" | tr ':' '\n' | nl
+        echo ""
+        
+        echo "🏠 Environment Variables:"
+        echo "HOME: $HOME"
+        echo "USER: $USER" 
+        echo "SHELL: $SHELL"
+        echo "TERM: ${TERM:-[NOT SET]}"
+        echo "LANG: ${LANG:-[NOT SET]}"
+        echo "PWD: $PWD"
+        echo ""
+        
+        echo "📁 Available Commands:"
+        for cmd in python3 pip3 curl wget git jq; do
+          if command -v "$cmd" >/dev/null 2>&1; then
+            echo "✅ $cmd: $(command -v "$cmd")"
+          else
+            echo "❌ $cmd: Not found"
+          fi
+        done
+        echo ""
+        
+        echo "📂 Repository Structure:"
+        ls -la
+        echo ""
+        
+        echo "📜 Scripts Directory:"
+        if [ -d "scripts/event-sync" ]; then
+          ls -la scripts/event-sync/
+        else
+          echo "❌ scripts/event-sync directory missing"
+        fi
+        echo ""
+        
+        echo "🐍 Python Environment Details:"
+        python3 -c "import sys; print(f'Executable: {sys.executable}')" 2>/dev/null || echo "Python3 not available"
+        python3 -c "import sys; print(f'Version: {sys.version}')" 2>/dev/null || echo "Python3 version check failed"
+        python3 -c "import sys; print('Path:'); [print(f'  {p}') for p in sys.path]" 2>/dev/null || echo "Python3 path check failed"
+        
+    - name: Network Debug
+      if: github.event.inputs.debug_target == 'network' || github.event.inputs.debug_target == 'full'
+      run: |
+        echo "🌐 NETWORK ANALYSIS:"
+        echo "==================="
+        
+        echo "🔍 Network Interfaces:"
+        if command -v ip >/dev/null 2>&1; then
+          ip addr show | grep -E "^[0-9]|inet"
+        elif command -v ifconfig >/dev/null 2>&1; then
+          ifconfig | grep -E "^[a-z]|inet"
+        else
+          echo "Neither ip nor ifconfig available"
+        fi
+        echo ""
+        
+        echo "🌍 Internet Connectivity Tests:"
+        echo "Testing GitHub API..."
+        if curl -s --max-time 5 https://api.github.com/zen >/dev/null 2>&1; then
+          echo "✅ GitHub API reachable"
+          curl -s --max-time 5 https://api.github.com/zen
+        else
+          echo "❌ GitHub API unreachable"
+        fi
+        echo ""
+        
+        echo "Testing DNS resolution..."
+        if command -v nslookup >/dev/null 2>&1; then
+          nslookup github.com | head -10
+        elif command -v dig >/dev/null 2>&1; then
+          dig github.com | head -15
+        else
+          echo "No DNS tools available"
+        fi
+        echo ""
+        
+        echo "🚪 Listening Ports:"
+        if command -v netstat >/dev/null 2>&1; then
+          netstat -tlnp 2>/dev/null | head -10
+        elif command -v ss >/dev/null 2>&1; then
+          ss -tlnp | head -10  
+        else
+          echo "No port listing tools available"
+        fi
+        
+    - name: Secrets Debug
+      if: github.event.inputs.debug_target == 'secrets' || github.event.inputs.debug_target == 'full'
+      env:
+        GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL }}
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+      run: |
+        echo "🔐 SECRETS ANALYSIS:"
+        echo "==================="
+        
+        echo "📊 Secret Status:"
+        echo "GANCIO_BASE_URL: ${GANCIO_BASE_URL:+[SET]} ${GANCIO_BASE_URL:-[NOT SET]}"
+        echo "GANCIO_EMAIL: ${GANCIO_EMAIL:+[SET]} ${GANCIO_EMAIL:-[NOT SET]}"
+        echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:+[SET]} ${GANCIO_PASSWORD:-[NOT SET]}"
+        echo ""
+        
+        if [ "${{ github.event.inputs.include_sensitive_info }}" = "true" ]; then
+          echo "⚠️ SENSITIVE INFO MODE ENABLED:"
+          echo "GANCIO_BASE_URL: ${GANCIO_BASE_URL:-[NOT SET]}"
+          echo "GANCIO_EMAIL: ${GANCIO_EMAIL:-[NOT SET]}"
+          echo "GANCIO_PASSWORD: ${GANCIO_PASSWORD:0:3}*** (${#GANCIO_PASSWORD} chars total)"
+        fi
+        echo ""
+        
+        # Validate secret formats
+        echo "🔍 Secret Format Validation:"
+        if [[ -n "$GANCIO_BASE_URL" ]]; then
+          if [[ "$GANCIO_BASE_URL" =~ ^https?://[^/]+.*$ ]]; then
+            echo "✅ GANCIO_BASE_URL format appears valid"
+            
+            # Extract host and port for testing
+            HOST=$(echo "$GANCIO_BASE_URL" | sed -E 's|https?://([^/:]+).*|\1|')
+            PORT=$(echo "$GANCIO_BASE_URL" | sed -E 's|.*:([0-9]+).*|\1|' | head -1)
+            
+            echo "   → Host: $HOST"
+            echo "   → Port: $PORT"
+            
+            # Test connectivity
+            echo ""
+            echo "🌐 Connectivity Tests:"
+            echo "Testing basic HTTP connectivity..."
+            if curl -I -s --max-time 10 "$GANCIO_BASE_URL" >/dev/null 2>&1; then
+              echo "✅ Base URL accessible"
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$GANCIO_BASE_URL")
+              echo "   → HTTP Status: $HTTP_CODE"
+            else
+              echo "❌ Base URL not accessible"
+            fi
+            
+            echo "Testing API endpoint..."
+            if curl -I -s --max-time 10 "$GANCIO_BASE_URL/api/events" >/dev/null 2>&1; then
+              echo "✅ API endpoint accessible"
+              API_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$GANCIO_BASE_URL/api/events")
+              echo "   → API Status: $API_CODE"
+            else
+              echo "❌ API endpoint not accessible"
+            fi
+            
+            # Test port connectivity specifically
+            echo "Testing port connectivity..."
+            if timeout 5 bash -c "</dev/tcp/$HOST/$PORT" 2>/dev/null; then
+              echo "✅ Port $PORT is open on $HOST"
+            else
+              echo "❌ Port $PORT is closed or filtered on $HOST"
+            fi
+            
+          else
+            echo "❌ GANCIO_BASE_URL format invalid"
+          fi
+        else
+          echo "❌ GANCIO_BASE_URL not set"
+        fi
+        
+        if [[ -n "$GANCIO_EMAIL" ]]; then
+          if [[ "$GANCIO_EMAIL" =~ ^[^@]+@[^@]+\.[^@]+$ ]]; then
+            echo "✅ GANCIO_EMAIL format appears valid"
+          else
+            echo "❌ GANCIO_EMAIL format invalid"
+          fi
+        else
+          echo "❌ GANCIO_EMAIL not set"
+        fi
+        
+        if [[ -n "$GANCIO_PASSWORD" ]]; then
+          if [[ ${#GANCIO_PASSWORD} -ge 8 ]]; then
+            echo "✅ GANCIO_PASSWORD has adequate length (${#GANCIO_PASSWORD} chars)"
+          else
+            echo "⚠️ GANCIO_PASSWORD is short (${#GANCIO_PASSWORD} chars)"
+          fi
+        else
+          echo "❌ GANCIO_PASSWORD not set"
+        fi
+        
+    - name: Scripts Debug  
+      if: github.event.inputs.debug_target == 'scripts' || github.event.inputs.debug_target == 'full'
+      run: |
+        echo "📜 SCRIPTS ANALYSIS:"
+        echo "==================="
+        
+        echo "🐍 Python Environment Check:"
+        if command -v python3 >/dev/null 2>&1; then
+          python3 --version
+          echo "Python executable: $(which python3)"
+          echo "Python path:"
+          python3 -c "import sys; [print(f'  {p}') for p in sys.path]" 2>/dev/null || echo "Could not get Python path"
+        else
+          echo "❌ Python3 not available"
+        fi
+        echo ""
+        
+        echo "📦 Python Modules Check:"
+        for module in requests json os sys urllib beautifulsoup4 lxml; do
+          if python3 -c "import $module" 2>/dev/null; then
+            python3 -c "import $module; print(f'✅ $module: {getattr($module, \"__version__\", \"version unknown\")}')" 2>/dev/null || echo "✅ $module: imported successfully"
+          else
+            echo "❌ $module: not available"
+          fi
+        done
+        echo ""
+        
+        echo "📁 Script Files Analysis:"
+        if [ -d "scripts/event-sync" ]; then
+          echo "Scripts found in scripts/event-sync/:"
+          find scripts/event-sync -name "*.py" -type f | while read -r script; do
+            echo "📄 $script:"
+            echo "   Permissions: $(ls -l "$script" | cut -d' ' -f1)"
+            echo "   Size: $(wc -c < "$script") bytes"
+            echo "   Executable: $([ -x "$script" ] && echo "Yes" || echo "No")"
+            
+            # Check if script has shebang
+            if head -1 "$script" | grep -q "^#!"; then
+              echo "   Shebang: $(head -1 "$script")"
+            else
+              echo "   Shebang: None"
+            fi
+            
+            # Basic syntax check
+            if python3 -m py_compile "$script" 2>/dev/null; then
+              echo "   Syntax: ✅ Valid"
+            else
+              echo "   Syntax: ❌ Invalid"
+            fi
+            echo ""
+          done
+        else
+          echo "❌ No scripts/event-sync directory found"
+        fi
+        
+        echo "🔍 Key Script Dependencies:"
+        KEY_SCRIPTS=(
+          "scripts/event-sync/github_actions_diagnostics.py"
+          "scripts/event-sync/advanced_github_actions_debug.py"
+          "scripts/event-sync/validate_github_secrets.py"
+          "scripts/event-sync/enhanced_sync_with_complete_validation.py"
+          "scripts/event-sync/automated_sync_working_fixed_with_venue_enforcement.py"
+        )
+        
+        for script in "${KEY_SCRIPTS[@]}"; do
+          if [ -f "$script" ]; then
+            echo "✅ $script exists"
+          else
+            echo "❌ $script missing"
+          fi
+        done
+        
+    - name: System Resources Check
+      if: github.event.inputs.debug_target == 'full'
+      run: |
+        echo "💾 SYSTEM RESOURCES:"
+        echo "==================="
+        
+        echo "🧠 Memory Usage:"
+        if command -v free >/dev/null 2>&1; then
+          free -h
+        else
+          echo "free command not available"
+        fi
+        echo ""
+        
+        echo "💿 Disk Usage:"
+        if command -v df >/dev/null 2>&1; then
+          df -h | head -10
+        else
+          echo "df command not available"
+        fi
+        echo ""
+        
+        echo "🖥️ CPU Information:"
+        if [ -f /proc/cpuinfo ]; then
+          echo "CPU Model: $(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)"
+          echo "CPU Cores: $(nproc 2>/dev/null || echo "unknown")"
+        else
+          echo "/proc/cpuinfo not available"
+        fi
+        echo ""
+        
+        echo "📈 System Load:"
+        if command -v uptime >/dev/null 2>&1; then
+          uptime
+        else
+          echo "uptime command not available"
+        fi
+        echo ""
+        
+        echo "🔄 Process Information:"
+        echo "Current processes (top 5 by CPU):"
+        if command -v ps >/dev/null 2>&1; then
+          ps aux --sort=-%cpu | head -6
+        else
+          echo "ps command not available"
+        fi
+        
+    - name: Final Recommendations
+      if: always()
+      run: |
+        echo "💡 DEBUG ANALYSIS COMPLETE"
+        echo "=========================="
+        echo "Timestamp: $(date -Iseconds)"
+        echo ""
+        echo "🎯 NEXT STEPS BASED ON FINDINGS:"
+        echo ""
+        echo "1. Review the output above for any ❌ failures"
+        echo "2. Pay special attention to:"
+        echo "   - Missing Python modules (install with pip)"
+        echo "   - Network connectivity issues (check Gancio service)"
+        echo "   - Missing secrets (configure in GitHub settings)"
+        echo "   - File permission issues (check script executable permissions)"
+        echo ""
+        echo "🔧 COMMON FIXES:"
+        echo "- Missing modules: Run 'pip install requests beautifulsoup4 lxml'"
+        echo "- Permission errors: Run 'chmod +x scripts/event-sync/*.py'"
+        echo "- Network issues: Check if Gancio is running and accessible"
+        echo "- Missing secrets: Go to Repository Settings → Secrets and Variables → Actions"
+        echo ""
+        echo "🚨 FOR IMMEDIATE HELP:"
+        echo "- Copy the output above and check against the troubleshooting guide"
+        echo "- Run the specific debug target that showed issues"
+        echo "- Test components manually on the runner system"
