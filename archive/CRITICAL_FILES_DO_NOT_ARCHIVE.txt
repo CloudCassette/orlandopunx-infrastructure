@@ -1,0 +1,15 @@
+# CRITICAL FILES - DO NOT ARCHIVE
+# These files are currently in production use
+
+## Active GitHub Workflows
+.github/workflows/sync-willspub-events.yml - PRODUCTION WORKFLOW
+
+## Active Scripts  
+scripts/event-sync/automated_sync_working.py - PRODUCTION SYNC SCRIPT
+scripts/event-sync/enhanced_multi_venue_sync.py - PRODUCTION SCRAPER
+scripts/event-sync/test_current_functionality.py - VALIDATION SCRIPT
+
+## Support Files
+scripts/deploy-changes.sh - DEPLOYMENT SCRIPT
+
+# All other files in scripts/event-sync/ are candidates for archiving
