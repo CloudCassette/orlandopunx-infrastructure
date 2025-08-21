@@ -3,58 +3,63 @@
 # Simple HTTP server to browse and download flyer images from your laptop
 
 import http.server
-import socketserver
-import os
 import json
+import os
+import socketserver
 from datetime import datetime
+
 
 class FlyerHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/' or self.path == '/index.html':
+        if self.path == "/" or self.path == "/index.html":
             self.send_response(200)
-            self.send_header('Content-type', 'text/html')
+            self.send_header("Content-type", "text/html")
             self.end_headers()
-            
+
             # Generate HTML gallery
             html = self.generate_gallery()
             self.wfile.write(html.encode())
-        elif self.path == '/api/flyers':
+        elif self.path == "/api/flyers":
             self.send_response(200)
-            self.send_header('Content-type', 'application/json')
+            self.send_header("Content-type", "application/json")
             self.end_headers()
-            
+
             # Return flyer list as JSON
             flyers = self.get_flyer_list()
             self.wfile.write(json.dumps(flyers).encode())
         else:
             # Serve files normally
             super().do_GET()
-    
+
     def get_flyer_list(self):
         flyers = []
-        flyer_dir = 'flyers'
+        flyer_dir = "flyers"
         if os.path.exists(flyer_dir):
             for file in os.listdir(flyer_dir):
-                if file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                if file.lower().endswith((".jpg", ".jpeg", ".png", ".gif")):
                     filepath = os.path.join(flyer_dir, file)
                     stat = os.stat(filepath)
-                    
+
                     # Extract event name from filename
-                    event_name = file.replace('_', ' ').split('.')[0]
-                    
-                    flyers.append({
-                        'filename': file,
-                        'event_name': event_name,
-                        'size': stat.st_size,
-                        'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
-                        'url': f'/flyers/{file}'
-                    })
-        
-        return sorted(flyers, key=lambda x: x['modified'], reverse=True)
-    
+                    event_name = file.replace("_", " ").split(".")[0]
+
+                    flyers.append(
+                        {
+                            "filename": file,
+                            "event_name": event_name,
+                            "size": stat.st_size,
+                            "modified": datetime.fromtimestamp(stat.st_mtime).strftime(
+                                "%Y-%m-%d %H:%M"
+                            ),
+                            "url": f"/flyers/{file}",
+                        }
+                    )
+
+        return sorted(flyers, key=lambda x: x["modified"], reverse=True)
+
     def generate_gallery(self):
         flyers = self.get_flyer_list()
-        
+
         html = f"""
 <!DOCTYPE html>
 <html>
@@ -76,15 +81,15 @@ class FlyerHandler(http.server.SimpleHTTPRequestHandler):
 </head>
 <body>
     <h1>Orlando Punk Events - Flyer Gallery</h1>
-    
+
     <div class="stats">
-        <strong>Collection Stats:</strong> {len(flyers)} flyers | 
+        <strong>Collection Stats:</strong> {len(flyers)} flyers |
         Total size: {sum(f['size'] for f in flyers) / 1024 / 1024:.1f} MB
     </div>
-    
+
     <div class="gallery">
 """
-        
+
         for flyer in flyers:
             html += f"""
         <div class="flyer-card">
@@ -99,10 +104,10 @@ class FlyerHandler(http.server.SimpleHTTPRequestHandler):
             </div>
         </div>
 """
-        
+
         html += """
     </div>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Orlando Punk Events Flyer Gallery loaded!');
@@ -113,16 +118,17 @@ class FlyerHandler(http.server.SimpleHTTPRequestHandler):
 """
         return html
 
+
 if __name__ == "__main__":
     PORT = 8081
-    
+
     # Change to the event-sync directory
-    os.chdir('/home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync')
-    
+    os.chdir("/home/cloudcassette/orlandopunx-infrastructure/scripts/event-sync")
+
     with socketserver.TCPServer(("", PORT), FlyerHandler) as httpd:
         print(f"Flyer Gallery Server starting on port {PORT}")
         print(f"Access from your laptop: http://192.168.86.4:{PORT}")
-        
+
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

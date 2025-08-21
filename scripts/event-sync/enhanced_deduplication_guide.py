@@ -1,29 +1,30 @@
-
 # Enhanced Deduplication Logic for Sync Scripts
 # Add this to your sync scripts:
+
 
 def enhanced_duplicate_check(existing_events, new_event_title):
     """Enhanced duplicate checking with fuzzy matching"""
     import hashlib
-    
+
     title = new_event_title.strip()
-    
+
     # Exact match check
-    existing_titles = {event.get('title', '').strip() for event in existing_events}
+    existing_titles = {event.get("title", "").strip() for event in existing_events}
     if title in existing_titles:
         return True, "Exact title match"
-    
+
     # Normalized fuzzy check
-    normalized_new = ' '.join(title.lower().split())
-    
+    normalized_new = " ".join(title.lower().split())
+
     for existing_event in existing_events:
-        existing_title = existing_event.get('title', '').strip()
-        normalized_existing = ' '.join(existing_title.lower().split())
-        
+        existing_title = existing_event.get("title", "").strip()
+        normalized_existing = " ".join(existing_title.lower().split())
+
         if normalized_new == normalized_existing:
             return True, f"Fuzzy match with: {existing_title}"
-    
+
     return False, None
+
 
 # Usage in sync scripts:
 """

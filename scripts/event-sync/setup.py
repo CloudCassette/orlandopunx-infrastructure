@@ -3,7 +3,7 @@
 Setup script for Will's Pub to Gancio Sync
 """
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="willspub-gancio-sync",
@@ -15,8 +15,8 @@ setup(
     url="https://orlandopunx.com",
     py_modules=[
         "willspub_manual_import",
-        "willspub_selenium_sync", 
-        "willspub_to_gancio_final_working"
+        "willspub_selenium_sync",
+        "willspub_to_gancio_final_working",
     ],
     install_requires=[
         "requests>=2.25.1",

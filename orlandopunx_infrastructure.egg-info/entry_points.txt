@@ -1,0 +1,3 @@
+[console_scripts]
+serve-gallery = src.gallery.server:main
+sync-events = src.sync.main:main
