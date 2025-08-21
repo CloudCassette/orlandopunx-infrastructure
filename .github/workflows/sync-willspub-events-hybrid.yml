@@ -1,0 +1,118 @@
+name: 🔀 Multi-Venue Orlando Events Sync (Hybrid)
+
+on:
+  schedule:
+    - cron: '0 9,15,21 * * *'  # Run 3 times daily: 9am, 3pm, 9pm EST
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  sync-events:
+    runs-on: self-hosted
+    name: 🎵 Sync Events from Orlando Venues (Hybrid System)
+    
+    steps:
+    - name: 🔄 Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python Environment
+      run: |
+        cd scripts/event-sync
+        
+        echo "🐍 Setting up Python environment..."
+        
+        # Create virtual environment if it doesn't exist
+        if [ ! -d "venv" ]; then
+          echo "Creating virtual environment..."
+          python3 -m venv venv
+        fi
+        
+        # Activate virtual environment
+        source venv/bin/activate
+        
+        # Install/update dependencies
+        echo "Installing dependencies..."
+        pip install --upgrade pip
+        
+        # Use project requirements if available, otherwise fallback
+        if [ -f "../../requirements.txt" ]; then
+          echo "Using project requirements.txt"
+          pip install -r ../../requirements.txt
+        elif [ -f "requirements.txt" ]; then
+          echo "Using local requirements.txt"
+          pip install -r requirements.txt
+        else
+          echo "Installing basic dependencies"
+          pip install requests beautifulsoup4 python-dotenv selenium Pillow lxml
+        fi
+        
+        echo "✅ Python environment ready"
+      
+    - name: 🔀 Smart Hybrid Orlando Events Sync
+      env:
+        GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+        GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+        GANCIO_URL: http://localhost:13120
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        cd scripts/event-sync
+        
+        echo "🔀 Starting HYBRID GitHub Actions event sync..."
+        echo "🔄 Will automatically choose best available sync script"
+        
+        # Activate virtual environment
+        source venv/bin/activate
+        
+        # Verify environment
+        echo "Python version: $(python --version)"
+        echo "GANCIO_EMAIL set: ${GANCIO_EMAIL:+YES}" 
+        echo "GANCIO_PASSWORD set: ${GANCIO_PASSWORD:+YES}"
+        
+        # Smart script selection (preference order)
+        SYNC_SCRIPT=""
+        
+        if [ -f "hybrid_sync_working.py" ]; then
+          echo "🔀 Using HYBRID sync script (supports new modular structure)"
+          SYNC_SCRIPT="hybrid_sync_working.py"
+        elif [ -f "automated_sync_working_fixed.py" ]; then
+          echo "🔧 Using FIXED automated sync script"
+          SYNC_SCRIPT="automated_sync_working_fixed.py"
+        elif [ -f "automated_sync_working.py" ]; then
+          echo "📦 Using LEGACY automated sync script"
+          SYNC_SCRIPT="automated_sync_working.py"
+        else
+          echo "❌ No compatible sync script found!"
+          exit 1
+        fi
+        
+        echo "🚀 Running: python3 $SYNC_SCRIPT"
+        python3 "$SYNC_SCRIPT"
+        
+        echo "✅ Orlando events sync completed via GitHub Actions"
+        
+    - name: 📁 Archive Results  
+      if: always()
+      run: |
+        cd scripts/event-sync
+        
+        echo ""
+        echo "📊 GitHub Actions Sync Results:"
+        echo "==============================="
+        if [ -f sync_summary.txt ]; then
+          cat sync_summary.txt
+        fi
+        
+        echo ""
+        echo "🖼️ Flyers Downloaded:"
+        flyer_count=$(ls flyers/ 2>/dev/null | wc -l)
+        echo "$flyer_count flyer files"
+        
+        # Archive results
+        mkdir -p ../../backups/orlando-events
+        cp willspub_events.json ../../backups/orlando-events/willspub_$(date +%Y%m%d_%H%M).json 2>/dev/null || true
+        
+        if [ -d flyers ] && [ "$(ls -A flyers)" ]; then
+          mkdir -p ../../backups/orlando-flyers  
+          cp -r flyers ../../backups/orlando-flyers/flyers_$(date +%Y%m%d_%H%M)/ 2>/dev/null || true
+        fi
+        
+        echo "✅ GitHub Actions hybrid automation pipeline completed!"
