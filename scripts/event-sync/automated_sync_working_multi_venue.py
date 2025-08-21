@@ -69,8 +69,8 @@ class WorkingGancioSync:
         """Get or create venue ID for Gancio"""
         venue_mapping = {
             "Will's Pub": 1,  # Known working ID
-            "Conduit FL": 2,  # We'll create this if needed
-            "Conduit": 2
+            "Conduit FL": 5,  # We'll create this if needed
+            "Conduit": 5
         }
         
         return venue_mapping.get(venue_name, 1)  # Default to Will's Pub ID if unknown
