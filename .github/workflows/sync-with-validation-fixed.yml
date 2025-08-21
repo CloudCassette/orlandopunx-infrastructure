@@ -62,7 +62,7 @@ jobs:
         
         # Upgrade pip and install dependencies
         pip install --upgrade pip
-        pip install requests beautifulsoup4 lxml jq
+        pip install -r requirements.txt
         
         # Verify installations
         echo "✅ Python environment setup complete"
@@ -187,7 +187,7 @@ except Exception as e:
         
         # Install all required dependencies
         pip install --upgrade pip
-        pip install requests beautifulsoup4 lxml jq
+        pip install -r requirements.txt
         
         echo "✅ Dependencies installed"
     
@@ -242,7 +242,8 @@ except Exception as e:
       run: |
         cd ${{ github.workspace }}
         source venv/bin/activate || (python3 -m venv venv && source venv/bin/activate)
-        pip install requests jq
+        pip install --upgrade pip
+        pip install -r requirements.txt
     
     - name: Post-sync Data Validation
       run: |
