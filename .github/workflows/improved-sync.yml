@@ -1,0 +1,221 @@
+name: Improved Event Sync (Duplicate Prevention)
+
+on:
+  schedule:
+    # Reduced frequency: twice per day (9am, 9pm EST)
+    # This is more reasonable for event discovery
+    - cron: '0 13,01 * * *'  # 9am EST (13 UTC) and 9pm EST (01 UTC)
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if recently run'
+        required: false
+        default: 'false'
+        type: boolean
+      debug_mode:
+        description: 'Enable debug mode with extra logging'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
+  GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
+  GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL || 'http://localhost:13120' }}
+
+jobs:
+  connectivity-check:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    outputs:
+      gancio_healthy: ${{ steps.health_check.outputs.healthy }}
+      should_proceed: ${{ steps.schedule_check.outputs.should_proceed }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      timeout-minutes: 3
+      with:
+        fetch-depth: 1
+
+    - name: System Health Check
+      id: health_check
+      run: |
+        echo "🔍 System Health Check"
+        echo "Runner: $(hostname)"
+        echo "Time: $(date)"
+        echo "User: $(whoami)"
+
+        # Check Gancio service
+        if systemctl is-active --quiet gancio; then
+          echo "✅ Gancio service is running"
+          service_healthy=true
+        else
+          echo "❌ Gancio service is not running"
+          service_healthy=false
+        fi
+
+        # Check API connectivity
+        if curl -f -s -m 5 "${GANCIO_BASE_URL}/api/events" > /dev/null; then
+          echo "✅ Gancio API is accessible"
+          api_healthy=true
+        else
+          echo "❌ Gancio API is not accessible"
+          api_healthy=false
+        fi
+
+        # Overall health assessment
+        if [ "$service_healthy" = "true" ] && [ "$api_healthy" = "true" ]; then
+          echo "healthy=true" >> $GITHUB_OUTPUT
+          echo "✅ System is healthy"
+        else
+          echo "healthy=false" >> $GITHUB_OUTPUT
+          echo "❌ System has issues"
+        fi
+
+    - name: Intelligent Schedule Check
+      id: schedule_check
+      run: |
+        echo "🕒 Checking intelligent scheduling..."
+
+        # Force run if manual dispatch with force flag
+        if [ "${{ github.event.inputs.force_sync }}" = "true" ]; then
+          echo "🚀 Force sync requested, proceeding"
+          echo "should_proceed=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Check last run time
+        last_run_file="/tmp/orlandopunx_last_sync"
+        current_time=$(date +%s)
+
+        if [ ! -f "$last_run_file" ]; then
+          echo "📅 No previous run detected, proceeding"
+          echo "should_proceed=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Read last run time
+        if last_run=$(cat "$last_run_file" 2>/dev/null); then
+          last_run_timestamp=$(date -d "$last_run" +%s 2>/dev/null || echo "0")
+          hours_since=$(( (current_time - last_run_timestamp) / 3600 ))
+
+          if [ "$hours_since" -ge 12 ]; then
+            echo "⏰ Last run was ${hours_since} hours ago, proceeding"
+            echo "should_proceed=true" >> $GITHUB_OUTPUT
+          else
+            echo "⏸️ Last run was ${hours_since} hours ago, skipping (minimum 12h)"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "⚠️ Could not read last run time, proceeding anyway"
+          echo "should_proceed=true" >> $GITHUB_OUTPUT
+        fi
+
+  improved-sync:
+    runs-on: self-hosted
+    needs: connectivity-check
+    if: needs.connectivity-check.outputs.gancio_healthy == 'true' && needs.connectivity-check.outputs.should_proceed == 'true'
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      timeout-minutes: 3
+      with:
+        fetch-depth: 1
+
+    - name: Setup Python Environment
+      run: |
+        echo "📦 Setting up Python environment"
+        cd ${{ github.workspace }}/src/sync
+
+        # Create fresh virtual environment
+        rm -rf venv
+        python3 -m venv venv
+        source venv/bin/activate
+
+        # Install dependencies with timeout
+        timeout 180 pip install --upgrade pip
+        timeout 180 pip install requests beautifulsoup4 lxml
+
+        echo "✅ Python environment ready"
+
+    - name: Run Improved Sync System
+      run: |
+        cd ${{ github.workspace }}/src/sync
+        source venv/bin/activate
+
+        echo "🚀 Starting improved event sync system"
+        export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
+
+        # Use the new improved sync script
+        python3 improved_sync.py
+        sync_result=$?
+
+        if [ $sync_result -eq 0 ]; then
+          echo "✅ Improved sync completed successfully"
+        else
+          echo "❌ Improved sync failed with code: $sync_result"
+          exit $sync_result
+        fi
+
+    - name: Update Sync Timestamp
+      if: success()
+      run: |
+        echo "📅 Updating sync timestamp"
+        echo "$(date -Iseconds)" > /tmp/orlandopunx_last_sync
+        echo "✅ Timestamp updated"
+
+    - name: Post-sync Analysis
+      if: always()
+      run: |
+        echo "📊 Post-sync analysis"
+
+        # Check for state file
+        state_file="${{ github.workspace }}/src/sync/event_state.pkl"
+        if [ -f "$state_file" ]; then
+          echo "💾 State file exists: $(ls -lh $state_file)"
+        else
+          echo "⚠️ No state file found"
+        fi
+
+        # Check API status
+        if curl -f -s -m 5 "${GANCIO_BASE_URL}/api/events" > /dev/null; then
+          event_count=$(curl -s -m 5 "${GANCIO_BASE_URL}/api/events" | jq length 2>/dev/null || echo "unknown")
+          echo "📊 Current events in Gancio: $event_count"
+        else
+          echo "⚠️ Could not query Gancio API for final status"
+        fi
+
+  notification:
+    runs-on: self-hosted
+    needs: [connectivity-check, improved-sync]
+    if: always()
+    timeout-minutes: 2
+
+    steps:
+    - name: Sync Summary Report
+      run: |
+        echo "📊 Improved Event Sync Summary"
+        echo "=============================="
+        echo "Connectivity Check: ${{ needs.connectivity-check.result }}"
+        echo "Should Proceed: ${{ needs.connectivity-check.outputs.should_proceed }}"
+        echo "Improved Sync: ${{ needs.improved-sync.result }}"
+        echo "Gancio Health: ${{ needs.connectivity-check.outputs.gancio_healthy }}"
+
+        if [ "${{ needs.improved-sync.result }}" = "success" ]; then
+          echo "🎉 Improved sync workflow completed successfully!"
+          echo "✨ Duplicate prevention and intelligent scheduling active"
+        elif [ "${{ needs.connectivity-check.outputs.should_proceed }}" != "true" ]; then
+          echo "⏸️ Sync skipped due to intelligent scheduling"
+        elif [ "${{ needs.connectivity-check.outputs.gancio_healthy }}" != "true" ]; then
+          echo "🚨 Sync skipped due to system health issues"
+        else
+          echo "⚠️ Sync workflow encountered issues - check logs above"
+        fi
+
+        echo ""
+        echo "🔗 Check results at: https://orlandopunx.com"
+        echo "📅 Next possible run: $(date -d '+12 hours' '+%Y-%m-%d %H:%M EST')"
+        echo "⏰ Actual next scheduled run: $(date -d '+12 hours' '+%Y-%m-%d %H:%M EST')"
