@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Cleanup Existing Duplicates in Gancio
-=====================================
+Cleanup Pending Duplicates in Gancio
+====================================
 
 This script identifies and removes duplicate events that are currently
-clogging up the approval queue in Gancio admin.
+pending approval in Gancio admin interface.
+
+Modified to work with pending events specifically.
 """
 
 import hashlib
@@ -18,10 +20,10 @@ from typing import Dict, List, Optional, Tuple
 import requests
 
 
-class GancioDuplicateCleanup:
-    """Clean up existing duplicates in Gancio database"""
+class GancioPendingDuplicateCleanup:
+    """Clean up pending duplicates in Gancio database"""
 
-    def __init__(self, gancio_base_url: str = "http://localhost:13120"):
+    def __init__(self, gancio_base_url: str = "https://orlandopunx.com"):
         self.gancio_base_url = gancio_base_url
         self.session = requests.Session()
         self.authenticated = False
@@ -43,9 +45,7 @@ class GancioDuplicateCleanup:
         print(f"🔑 Authenticating with Gancio as {email}...")
 
         try:
-            # Use the WORKING authentication method (direct POST to /login)
             login_data = {"email": email, "password": password}
-
             response = self.session.post(
                 f"{self.gancio_base_url}/login", data=login_data, allow_redirects=True
             )
@@ -61,25 +61,96 @@ class GancioDuplicateCleanup:
             print(f"❌ Authentication error: {e}")
             return False
 
-    def get_all_events(self) -> List[Dict]:
-        """Get all events from Gancio (including pending approval)"""
+    def get_pending_events_batch(self, offset: int = 0, limit: int = 50) -> List[Dict]:
+        """Get a batch of pending events"""
         try:
-            # Try to get all events including pending ones
-            # This might require admin API access
-            response = self.session.get(f"{self.gancio_base_url}/api/events?all=true")
-            if response.status_code == 200:
-                return response.json()
-
-            # Fallback to regular events API
-            response = self.session.get(f"{self.gancio_base_url}/api/events")
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"❌ Could not fetch events: {response.status_code}")
-                return []
+            # Try multiple endpoints to get pending events
+            endpoints = [
+                f"/api/events?status=pending&offset={offset}&limit={limit}",
+                f"/api/events?approved=false&offset={offset}&limit={limit}", 
+                f"/api/events?all=true&status=pending&offset={offset}&limit={limit}",
+            ]
+            
+            for endpoint in endpoints:
+                response = self.session.get(f"{self.gancio_base_url}{endpoint}")
+                if response.status_code == 200:
+                    events = response.json()
+                    if events:
+                        return events
+            
+            # If no events from API, return empty
+            return []
 
         except Exception as e:
-            print(f"❌ Error fetching events: {e}")
+            print(f"❌ Error fetching pending events: {e}")
+            return []
+
+    def get_all_pending_events(self) -> List[Dict]:
+        """Get all pending events by trying different approaches"""
+        all_events = []
+        
+        print("🔍 Fetching pending events...")
+        
+        # Method 1: Try API endpoints
+        batch = self.get_pending_events_batch()
+        if batch:
+            all_events.extend(batch)
+            print(f"📋 Found {len(batch)} pending events via API")
+        
+        # Method 2: Try to scrape admin interface if API is limited
+        if len(all_events) < 50:  # If we got less than 50, might be more via admin
+            admin_events = self.scrape_admin_pending_events()
+            if admin_events:
+                # Merge with API events, avoiding duplicates
+                existing_ids = {e.get('id') for e in all_events if e.get('id')}
+                for event in admin_events:
+                    if event.get('id') not in existing_ids:
+                        all_events.append(event)
+                print(f"📋 Found additional {len(admin_events)} events via admin scraping")
+        
+        return all_events
+
+    def scrape_admin_pending_events(self) -> List[Dict]:
+        """Try to scrape pending events from admin interface"""
+        try:
+            from bs4 import BeautifulSoup
+            
+            response = self.session.get(f"{self.gancio_base_url}/admin")
+            if response.status_code != 200:
+                return []
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Look for event data in the page
+            events = []
+            
+            # Try to find script tags with event data
+            script_tags = soup.find_all('script')
+            for script in script_tags:
+                if script.string and ('events' in script.string or 'pending' in script.string):
+                    try:
+                        # Try to extract JSON data from script
+                        import re
+                        json_matches = re.findall(r'\[.*?\]|\{.*?\}', script.string)
+                        for match in json_matches:
+                            try:
+                                data = json.loads(match)
+                                if isinstance(data, list) and len(data) > 0:
+                                    # Check if it looks like event data
+                                    if any(item.get('title') for item in data if isinstance(item, dict)):
+                                        events.extend([item for item in data if isinstance(item, dict)])
+                            except:
+                                continue
+                    except:
+                        continue
+            
+            return events[:100]  # Limit to avoid too many
+            
+        except ImportError:
+            print("⚠️ BeautifulSoup not available for admin scraping")
+            return []
+        except Exception as e:
+            print(f"⚠️ Admin scraping failed: {e}")
             return []
 
     def create_event_signature(self, event: Dict) -> str:
@@ -87,11 +158,11 @@ class GancioDuplicateCleanup:
         # Normalize key fields
         title = self._normalize_text(event.get("title", ""))
         venue = self._normalize_text(
-            event.get("place", {}).get("name", "") or event.get("venue", "")
+            event.get("place", {}).get("name", "") or event.get("venue", "") or event.get("place_name", "")
         )
 
         # Use date only (not full timestamp) for grouping
-        start_time = event.get("start_datetime", 0)
+        start_time = event.get("start_datetime", event.get("start", 0))
         if isinstance(start_time, (int, float)):
             date = datetime.fromtimestamp(start_time).strftime("%Y-%m-%d")
         else:
@@ -134,19 +205,19 @@ class GancioDuplicateCleanup:
             print("❌ Must authenticate first")
             return {}
 
-        print("📊 Fetching all events for duplicate analysis...")
-        events = self.get_all_events()
+        print("📊 Fetching all pending events for duplicate analysis...")
+        events = self.get_all_pending_events()
 
         if not events:
-            print("⚠️ No events found")
+            print("⚠️ No pending events found")
             return {}
 
-        print(f"📋 Found {len(events)} total events")
+        print(f"📋 Found {len(events)} total pending events")
 
         duplicate_groups = self.find_duplicate_groups(events)
 
         print(f"\n🔍 Duplicate Analysis Results:")
-        print(f"   Total events: {len(events)}")
+        print(f"   Total pending events: {len(events)}")
         print(f"   Duplicate groups: {len(duplicate_groups)}")
 
         total_duplicates = sum(len(group) - 1 for group in duplicate_groups.values())
@@ -164,34 +235,34 @@ class GancioDuplicateCleanup:
         analysis = self.analyze_duplicates()
 
         if not analysis.get("groups"):
-            print("✨ No duplicates found!")
+            print("✨ No duplicates found in pending events!")
             return True
 
-        print(f"\n🔍 PREVIEW: Events that would be removed:")
+        print(f"\n🔍 PREVIEW: Pending events that would be removed:")
         print("=" * 60)
 
         for signature, events_group in analysis["groups"].items():
-            # Sort by ID to keep the oldest
-            events_sorted = sorted(events_group, key=lambda x: x.get("id", 0))
+            # Sort by ID to keep the oldest (or first if no ID)
+            events_sorted = sorted(events_group, key=lambda x: x.get("id", 999999))
             keep_event = events_sorted[0]
             remove_events = events_sorted[1:]
 
             print(f"\n📌 Event Group: {signature}")
-            print(f"   ✅ KEEP: [{keep_event['id']}] {keep_event['title'][:60]}...")
+            print(f"   ✅ KEEP: [{keep_event.get('id', 'no-id')}] {keep_event.get('title', 'No title')[:60]}...")
 
             for remove_event in remove_events:
                 print(
-                    f"   ❌ REMOVE: [{remove_event['id']}] {remove_event['title'][:60]}..."
+                    f"   ❌ REMOVE: [{remove_event.get('id', 'no-id')}] {remove_event.get('title', 'No title')[:60]}..."
                 )
 
         return True
 
     def cleanup_duplicates(self, dry_run: bool = True) -> bool:
-        """Clean up duplicate events"""
+        """Clean up duplicate pending events"""
         analysis = self.analyze_duplicates()
 
         if not analysis.get("groups"):
-            print("✨ No duplicates found!")
+            print("✨ No duplicates found in pending events!")
             return True
 
         if dry_run:
@@ -199,7 +270,7 @@ class GancioDuplicateCleanup:
             return self.preview_cleanup()
 
         print(
-            f"\n🗑️ CLEANUP: Removing {analysis['events_to_remove']} duplicate events..."
+            f"\n🗑️ CLEANUP: Removing {analysis['events_to_remove']} duplicate pending events..."
         )
         print("⚠️ THIS WILL PERMANENTLY DELETE EVENTS!")
 
@@ -213,16 +284,19 @@ class GancioDuplicateCleanup:
         error_count = 0
 
         for signature, events_group in analysis["groups"].items():
-            # Sort by ID to keep the oldest
-            events_sorted = sorted(events_group, key=lambda x: x.get("id", 0))
+            events_sorted = sorted(events_group, key=lambda x: x.get("id", 999999))
             keep_event = events_sorted[0]
             remove_events = events_sorted[1:]
 
             print(f"\n📌 Processing: {signature}")
-            print(f"   ✅ Keeping: [{keep_event['id']}] {keep_event['title'][:50]}...")
+            print(f"   ✅ Keeping: [{keep_event.get('id', 'no-id')}] {keep_event.get('title', 'No title')[:50]}...")
 
             for remove_event in remove_events:
-                event_id = remove_event["id"]
+                event_id = remove_event.get("id")
+                if not event_id:
+                    print(f"   ⚠️ Skipping event with no ID")
+                    continue
+                    
                 try:
                     # Delete event via API
                     delete_response = self.session.delete(
@@ -247,7 +321,7 @@ class GancioDuplicateCleanup:
         print(f"   ❌ Errors: {error_count}")
 
         if removed_count > 0:
-            print(f"\n🎉 Cleanup completed! Removed {removed_count} duplicate events")
+            print(f"\n🎉 Cleanup completed! Removed {removed_count} duplicate pending events")
 
         return error_count == 0
 
@@ -256,11 +330,11 @@ def main():
     """Main function"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Clean up duplicate events in Gancio")
+    parser = argparse.ArgumentParser(description="Clean up duplicate pending events in Gancio")
     parser.add_argument(
         "--analyze",
         action="store_true",
-        help="Analyze duplicates without taking action",
+        help="Analyze pending duplicates without taking action",
     )
     parser.add_argument(
         "--preview",
@@ -285,10 +359,10 @@ def main():
         parser.print_help()
         return 1
 
-    print("🧹 Gancio Duplicate Cleanup Tool")
-    print("=================================")
+    print("🧹 Gancio Pending Duplicate Cleanup Tool")
+    print("========================================")
 
-    cleaner = GancioDuplicateCleanup()
+    cleaner = GancioPendingDuplicateCleanup()
 
     if not cleaner.authenticate():
         return 1
