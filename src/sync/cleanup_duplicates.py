@@ -43,22 +43,18 @@ class GancioDuplicateCleanup:
         print(f"🔑 Authenticating with Gancio as {email}...")
 
         try:
-            # Get login page first
-            self.session.get(f"{self.gancio_base_url}/login")
+            # Use the WORKING authentication method (direct POST to /login)
+            login_data = {"email": email, "password": password}
 
-            # Post credentials
-            login_response = self.session.post(
-                f"{self.gancio_base_url}/auth/login",
-                data={"email": email, "password": password},
-                allow_redirects=True,
+            response = self.session.post(
+                f"{self.gancio_base_url}/login", data=login_data, allow_redirects=True
             )
 
-            if "admin" in login_response.url or login_response.status_code == 200:
-                print("✅ Authentication successful")
+            if response.status_code == 200:
                 self.authenticated = True
                 return True
             else:
-                print(f"❌ Authentication failed: {login_response.status_code}")
+                print(f"❌ Authentication failed: {response.status_code}")
                 return False
 
         except Exception as e:
