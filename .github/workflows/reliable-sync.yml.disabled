@@ -29,7 +29,7 @@ jobs:
     outputs:
       gancio_healthy: ${{ steps.health_check.outputs.healthy }}
       event_count: ${{ steps.health_check.outputs.event_count }}
-    
+
     steps:
     - name: Checkout code (with retry)
       uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
       env:
         # Add timeout and retry settings
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: System Health Check
       id: health_check
       run: |
@@ -48,7 +48,7 @@ jobs:
         echo "Runner: $(hostname)"
         echo "Time: $(date)"
         echo "User: $(whoami)"
-        
+
         # Check Gancio service
         if systemctl is-active --quiet gancio; then
           echo "✅ Gancio service is running"
@@ -57,7 +57,7 @@ jobs:
           echo "❌ Gancio service is not running"
           service_healthy=false
         fi
-        
+
         # Check API connectivity
         if curl -f -s -m 5 "${GANCIO_BASE_URL}/api/events" > /dev/null; then
           echo "✅ Gancio API is accessible"
@@ -69,7 +69,7 @@ jobs:
           api_healthy=false
           event_count=0
         fi
-        
+
         # Overall health assessment
         if [ "$service_healthy" = "true" ] && [ "$api_healthy" = "true" ]; then
           echo "healthy=true" >> $GITHUB_OUTPUT
@@ -78,7 +78,7 @@ jobs:
           echo "healthy=false" >> $GITHUB_OUTPUT
           echo "❌ System has issues"
         fi
-        
+
         echo "event_count=$event_count" >> $GITHUB_OUTPUT
 
   event-sync:
@@ -86,7 +86,7 @@ jobs:
     needs: connectivity-check
     if: needs.connectivity-check.outputs.gancio_healthy == 'true'
     timeout-minutes: 15
-    
+
     steps:
     - name: Checkout code (with retry)
       uses: actions/checkout@v4
@@ -95,60 +95,60 @@ jobs:
         fetch-depth: 1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Setup Python Environment
       run: |
         echo "📦 Setting up Python environment"
         cd ${{ github.workspace }}/scripts/event-sync
-        
+
         # Create fresh virtual environment
         rm -rf venv
         python3 -m venv venv
         source venv/bin/activate
-        
+
         # Install dependencies with timeout
         timeout 180 pip install --upgrade pip
         timeout 180 pip install requests beautifulsoup4 lxml
-        
+
         echo "✅ Python environment ready"
-    
+
     - name: Run Event Sync
       run: |
         cd scripts/event-sync
         source venv/bin/activate
-        
+
         echo "🚀 Starting event sync"
         echo "📊 Current events: ${{ needs.connectivity-check.outputs.event_count }}"
-        
+
         export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
-        
+
         # Run the working sync script
         python3 automated_sync_working_multi_venue.py
         sync_result=$?
-        
+
         if [ $sync_result -eq 0 ]; then
           echo "✅ Event sync completed successfully"
         else
           echo "❌ Event sync failed with code: $sync_result"
           exit $sync_result
         fi
-    
+
     - name: Post-sync Validation
       if: always()
       run: |
         cd scripts/event-sync
         source venv/bin/activate
-        
+
         echo "🔍 Post-sync validation"
         export GANCIO_BASE_URL="${GANCIO_BASE_URL}"
-        
+
         # Check final event count
         final_count=$(curl -s -m 5 "${GANCIO_BASE_URL}/api/events" | jq length 2>/dev/null || echo "0")
         initial_count=${{ needs.connectivity-check.outputs.event_count }}
-        
+
         echo "📊 Events before sync: $initial_count"
         echo "📊 Events after sync: $final_count"
-        
+
         if [ "$final_count" -ge "$initial_count" ]; then
           echo "✅ Event count stable or increased"
         else
@@ -160,7 +160,7 @@ jobs:
     needs: [connectivity-check, event-sync]
     if: always()
     timeout-minutes: 2
-    
+
     steps:
     - name: Summary Report
       run: |
@@ -170,7 +170,7 @@ jobs:
         echo "Event Sync: ${{ needs.event-sync.result }}"
         echo "Initial Event Count: ${{ needs.connectivity-check.outputs.event_count }}"
         echo "Gancio Health: ${{ needs.connectivity-check.outputs.gancio_healthy }}"
-        
+
         if [ "${{ needs.event-sync.result }}" = "success" ]; then
           echo "🎉 Sync workflow completed successfully!"
         elif [ "${{ needs.connectivity-check.outputs.gancio_healthy }}" != "true" ]; then
@@ -178,7 +178,7 @@ jobs:
         else
           echo "⚠️ Sync workflow had issues - check logs above"
         fi
-        
+
         echo ""
         echo "🔗 Check results at: https://orlandopunx.com"
         echo "📅 Next scheduled run: $(date -d '+8 hours' '+%Y-%m-%d %H:%M EST')"

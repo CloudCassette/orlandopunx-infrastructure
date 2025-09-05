@@ -77,7 +77,7 @@ jobs:
         fi
 
         # Use the fixed sync script
-        python3 fixed_sync.py
+        python3 fixed_sync_improved.py
         sync_result=$?
 
         if [ $sync_result -eq 0 ]; then
