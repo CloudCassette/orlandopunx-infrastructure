@@ -16,6 +16,8 @@ env:
   GANCIO_EMAIL: ${{ secrets.GANCIO_EMAIL }}
   GANCIO_PASSWORD: ${{ secrets.GANCIO_PASSWORD }}
   GANCIO_BASE_URL: ${{ secrets.GANCIO_BASE_URL || 'http://localhost:13120' }}
+  # Default to DRY_RUN to prevent any accidental submissions while we harden duplicate detection
+  DRY_RUN: 'true'
 
 jobs:
   sync-events:
@@ -62,6 +64,12 @@ jobs:
         source venv/bin/activate
 
         echo "🚀 Running fixed sync with proper duplicate prevention"
+
+        # If DRY_RUN is globally enabled, skip running the sync script
+        if [ "$DRY_RUN" = "true" ]; then
+          echo "🧪 DRY RUN: Skipping fixed_sync.py execution"
+          exit 0
+        fi
 
         if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
           echo "🔍 DRY RUN MODE - Will check for duplicates without submitting"
