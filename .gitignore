@@ -1,4 +1,5 @@
 # Sensitive configuration files
+config.py
 configs/gancio/config.json
 **/passwords.txt
 **/secrets.txt
