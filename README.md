@@ -1,22 +1,24 @@
 # Orlando Punx Infrastructure
 
-**Infrastructure as Code for Orlando Punx ecosystem** - Ghost blogs, Gancio events, automated event sync, and community services.
+**Infrastructure as Code + event automation for the Orlando Punx ecosystem** — Ghost blogs, Gancio events, and community services.
+
+> **Status: maintenance mode.** Event sync workflows are **disabled or DRY_RUN by default** (see [Event Sync](#-event-sync-automation)); the repo has been dormant since September 2025. Live services (Gancio at `orlandopunx.com`, Ghost blogs) continue to run unchanged.
 
 ## 🏗️ **Architecture Overview**
 
 ### **Cloudflare Tunnel Architecture**
 ```
 Internet → Cloudflare Edge → Tunnel → nginx → Services
-   ↓            ↓            ↓        ↓        ↓  
+   ↓            ↓            ↓        ↓        ↓
 HTTPS      SSL/DDoS      Local    Proxy   Ghost/Gancio
 ```
 
 ### **Current Services**
 - **🎸 orlandopunx.com**: Gancio event system (port 13120) ✅ **Active**
 - **📝 cloudcassette.blog**: Ghost blog (port 2368) ✅ **Active**
-- **🎸 orlandogirlsrockcamp.com**: Ghost blog (port 2369) ✅ **Active**
-- **🥪 tamtamthesandwichman.com**: Ghost blog (port 2370) 📋 *Planned*
-- **⚡ godless-america.com**: Ghost blog (port 2371) 📋 *Planned*
+- **🎸 orlandogirlsrockcamp.com**: Ghost blog (port 2369) 📋 *ready for restoration*
+- **🥪 tamtamthesandwichman.com**: Ghost blog (port 2370) 📋 *planned*
+- **⚡ godless-america.com**: Ghost blog (port 2371) 📋 *planned*
 
 ## 🤖 **Event Sync Automation**
 
@@ -27,10 +29,12 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
    Event listings      JSON extraction   Flyer upload   Event creation   Live events
 ```
 
-### **Automation Schedule**
-- **Cron Jobs**: Every 2 hours (24/7 monitoring)
-- **GitHub Actions**: 9am, 3pm, 9pm EST (redundant backup)
-- **Manual Trigger**: `scripts/event-sync/sync_wrapper_fixed.sh`
+### **Current State (as of 2026-10)**
+- **GitHub Actions**: `fixed-sync.yml` runs daily but with **`DRY_RUN=true`** — it does not write events
+- **Cron**: manual event-sync cron entry is **disabled** on the server
+- **Manual trigger**: `src/sync/fixed_sync_improved.py` (the only maintained sync runner) and `scripts/event-sync/sync_wrapper_fixed.sh`
+- **Duplicates**: a one-off Selenium cleanup removed duplicate events; the identity-verifier tooling is archived under the `pre-cleanup-2026-10-11` tag
+- Do **not** re-enable sync without checking current Gancio state first
 
 ### **Features**
 - 🎯 **Smart Event Detection**: Prevents duplicate events
@@ -44,41 +48,49 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
 ### **Container Management**
 - **Docker**: Custom root at `/media/Steam Dock/docker_data` (1.8TB)
 - **Portainer**: Web UI at https://localhost:9443
-- **Cloudflare tunnels**: 5 tunnel instances for secure access
+- **Cloudflare tunnels**: Tunnel instances for secure access
 
 ### **Services**
 - **nginx**: Reverse proxy (Cloudflare tunnel termination)
 - **PostgreSQL**: Database server (system service)
-- **Gancio**: Event management (system service)
+- **Gancio**: Event management (system service on the homelab server)
 - **Ghost instances**: Multiple blog platforms (containerized)
 
-### **Automation Services**
-- **Event Sync**: Python-based scraping and API integration
-- **Image Processing**: Automated flyer download and upload
-- **GitHub Actions**: CI/CD for event sync workflows
-- **Cron Jobs**: Scheduled event synchronization
-
-## 📁 **Repository Structure**
+## 📁 **Repository Structure** (as of 2026-10 cleanup)
 
 ```
-├── ansible/                 # Infrastructure as Code
+├── src/                    # Python package (entry: sync-events, serve-gallery)
+│   ├── scrapers/           #   conduit.py, songkick.py, willspub.py
+│   ├── sync/               #   main.py, fixed_sync_improved.py, deduplication.py
+│   ├── gallery/            #   server.py (flyer gallery)
+│   └── utils/
+├── ansible/                # Infrastructure as Code
 │   ├── inventory/          # Server definitions
-│   ├── group_vars/         # Configuration variables
-│   ├── roles/              # Service configurations
+│   ├── group_vars/         # Configuration variables (vault refs, no plaintext)
+│   ├── roles/              # cloudflare, docker, gancio, ghost, nginx, ...
 │   └── playbooks/          # Deployment scripts
-├── scripts/                # Automation scripts
-│   ├── event-sync/         # Event automation system
-│   │   ├── willspub_scraper_fixed.py
-│   │   ├── sync_to_gancio_fixed.py
-│   │   ├── sync_wrapper_fixed.sh
-│   │   └── automated_sync_with_images.py
-│   └── ...
-├── configs/                # Legacy configurations
-├── docs/                   # Documentation
-├── backups/                # Infrastructure snapshots
-├── .github/workflows/      # GitHub Actions automation
-└── gancio/                 # Gancio customizations
+├── scripts/
+│   ├── event-sync/         #   only CI/cron- referenced files remain (6)
+│   ├── deploy-changes.sh
+│   ├── sync-events         #   entry point → src.sync.main
+│   └── serve-gallery       #   entry point → src.gallery.server
+├── seo/                    # nuxt config, robots.txt, sitemap, deploy scripts
+├── gancio/                 # Gancio customizations + seo-improvements
+├── tools/                  # debug/ + monitoring/ helpers
+├── monitoring/             # health-check.sh
+├── docs/                   # API, deployment, port allocation, CI guides
+├── configs/                # templates only (config.json.template, systemd units)
+├── backups/                # infrastructure snapshots
+└── .github/workflows/      # 5 active (+ archived experiments)
 ```
+
+**History cleanup note (2026-10-11):** ~270 one-off cleanup/debug scripts, HTML dumps, and experiment variants were removed from the tree; old `scripts/event-sync/` experiments and removal tooling are preserved under the `pre-cleanup-2026-10-11` tag.
+
+## 🔐 **Credentials**
+
+- `config.py` is **gitignored and purged from history** — never commit credentials
+- Use `config_example.py` as a template; put real values in the environment or GitHub Actions secrets (`GANCIO_EMAIL`, `GANCIO_PASSWORD`, `GANCIO_BASE_URL`, `DISCORD_WEBHOOK_URL`)
+- Ansible vault keeps all service passwords out of plaintext (`group_vars/*.yml` use `vault_*` references)
 
 ## 🚀 **Quick Start**
 
@@ -88,7 +100,7 @@ cd ansible/
 ansible-playbook playbooks/test-connection.yml
 ```
 
-### **Run Event Sync Manually**
+### **Run Event Sync Manually (dry run)**
 ```bash
 cd scripts/event-sync/
 ./sync_wrapper_fixed.sh
@@ -102,38 +114,30 @@ ansible-playbook playbooks/deploy-all-ghost-instances.yml --ask-vault-pass
 
 ### **Monitor Event Sync Status**
 ```bash
-# Check recent sync results
-tail -f scripts/event-sync/sync_summary.txt
-
 # View current events in Gancio
 curl -s "https://orlandopunx.com/api/events" | jq '.[].title'
 ```
 
 ## 🔗 **Related Repositories**
 
-- **[CloudCassette/homelab](https://github.com/CloudCassette/homelab)**: Terraform infrastructure provisioning
-- **This repo**: Ansible service configuration and event automation
+- **[homelab](http://192.168.86.4:3000/cloudcassette/homelab)**: homelab server configs (Docker Compose services, restic backup jobs, scripts) — also on [GitHub](https://github.com/CloudCassette/homelab)
+- **This repo**: mirrored to self-hosted **Forgejo** at `http://192.168.86.4:3000/cloudcassette/orlandopunx-infrastructure` (`ssh://git@192.168.86.4:2222`), with GitHub as origin
 
 ## 📚 **Documentation**
 
 ### **Infrastructure**
 - [PORT_ALLOCATION.md](docs/PORT_ALLOCATION.md) - Port strategy for multiple Ghost instances
-- [CLOUDFLARE_TUNNELS.md](docs/CLOUDFLARE_TUNNELS.md) - Tunnel architecture details  
 - [CURRENT_PORTAINER_STACKS.md](docs/CURRENT_PORTAINER_STACKS.md) - Stack analysis
+- [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) - Server and Gancio deployment
+- [API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) - Gancio/API reference
 - [ANSIBLE_SETUP_COMPLETE.md](ANSIBLE_SETUP_COMPLETE.md) - Setup completion guide
 
 ### **Automation**
-- [scripts/event-sync/FINAL_TEST_RESULTS.md](scripts/event-sync/FINAL_TEST_RESULTS.md) - Event sync test results
-- [scripts/event-sync/SCRAPER_FIX_SUMMARY.md](scripts/event-sync/SCRAPER_FIX_SUMMARY.md) - Scraper fixes and improvements
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
 - [GITHUB_SECRETS_SETUP.md](GITHUB_SECRETS_SETUP.md) - GitHub Actions configuration
 
-## ⚡ **Status: Fully Operational**
+## ⚡ **Status: Maintenance Mode**
 
-**✅ All core services are active and stable**  
-**🤖 Event automation running reliably**  
-**🎸 Orlando punk rock community infrastructure complete!**
-
----
-
-*Last updated: August 19, 2025 - Infrastructure now includes full event automation pipeline*
+**✅ Core services active** (Gancio, blog infrastructure)  
+**⏸️ Event automation paused** — sync workflows disabled/DRY_RUN pending network-stability work  
+**🧹 Repo cleaned** — 2026-10-11 purge of one-off scripts and credentials
