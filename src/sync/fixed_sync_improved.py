@@ -20,9 +20,17 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+from zoneinfo import ZoneInfo
 
 import requests
 from bs4 import BeautifulSoup
+
+# Ensure the repo root is importable: the runner executes this file
+# directly as `python3 fixed_sync_improved.py` from src/sync/, so
+# `src.scrapers.*` is not on sys.path by default.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 
 class ImprovedEventSync:
@@ -268,6 +276,164 @@ class ImprovedEventSync:
         
         return events
 
+    def resolve_place_id(self, name: str) -> Optional[int]:
+        """Resolve a Gancio place id for an Orlando Weekly venue name.
+
+        Priority:
+          1. Environment override (`ORLANDO_WEEKLY_STARDUST_PLACE_ID` /
+             `ORLANDO_WEEKLY_MSH_PLACE_ID`)
+          2. Fuzzy match against the `places` table in self.db_path
+             (e.g. `name LIKE '%sister%house%'`, `'%stardust%'`)
+
+        Never falls back to Will's Pub (place 1): an event at the wrong
+        venue is worse than no event. Returns None when unresolved so the
+        caller can drop the event safely.
+        """
+        name = (name or "").strip()
+        lower = name.lower()
+        env_key = None
+        pattern = None
+        if "sister" in lower and "house" in lower:
+            env_key = "ORLANDO_WEEKLY_MSH_PLACE_ID"
+            pattern = "%sister%house%"
+        elif "stardust" in lower:
+            env_key = "ORLANDO_WEEKLY_STARDUST_PLACE_ID"
+            pattern = "%stardust%"
+        if not pattern:
+            print(f"   ⚠️ No place resolution rule for venue: {name}")
+            return None
+
+        # 1) Explicit environment override
+        override = os.environ.get(env_key, "")
+        if override and override.strip().isdigit():
+            place_id = int(override.strip())
+            print(f"   🏢 {name} -> place_id {place_id} (env override)")
+            return place_id
+
+        # 2) Fuzzy lookup in the Gancio DB
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, name FROM places WHERE lower(name) LIKE ? "
+                "ORDER BY id",
+                (pattern,),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            if rows:
+                place_id, place_name = rows[0]
+                print(f"   🏢 {name} -> place_id {place_id} ({place_name})")
+                return place_id
+        except Exception as e:
+            print(f"   ⚠️ Could not resolve place for {name}: {e}")
+
+        print(
+            f"   ⚠️ No Gancio place found for {name!r} — its events will "
+            f"be dropped. Create the venue in the Gancio admin or set "
+            f"{env_key}."
+        )
+        return None
+
+    def fetch_orlando_weekly_events(self) -> List[Dict]:
+        """Fetch Orlando Weekly events (Stardust + My Sister's House).
+
+        Requires `playwright`. When it is missing (or scraping fails) a
+        clear warning is printed and [] is returned so the Will's Pub
+        sync still runs. Events are dropped when their Gancio place id
+        cannot be resolved (safer than assigning the wrong venue).
+        """
+        print("\n🗓️ Fetching Orlando Weekly events...")
+        try:
+            from src.scrapers.orlando_weekly import (
+                scrape_my_sisters_house_events,
+                scrape_stardust_events,
+            )
+        except ImportError as e:
+            print(
+                f"   ⚠️ Orlando Weekly scraper unavailable "
+                f"(playwright not installed?): {e}"
+            )
+            print("   Skipping Orlando Weekly — run `pip install playwright`")
+            return []
+
+        all_events: List[Dict] = []
+        sources = [
+            ("Stardust Video & Coffee", scrape_stardust_events),
+            ("My Sister's House", scrape_my_sisters_house_events),
+        ]
+
+        for venue_name, fetcher in sources:
+            try:
+                raw_events = fetcher() or []
+            except Exception as e:
+                print(
+                    f"   ❌ Orlando Weekly scraper failed for "
+                    f"{venue_name}: {e}"
+                )
+                raw_events = []
+
+            if not raw_events:
+                print(f"   ℹ️ {venue_name}: 0 events fetched")
+                continue
+
+            place_id = self.resolve_place_id(venue_name)
+            if place_id is None:
+                print(
+                    f"   ⚠️ Dropping {len(raw_events)} {venue_name} events "
+                    f"(no place id)"
+                )
+                continue
+
+            count = 0
+            for ev in raw_events:
+                title = ev.get("title", "")
+                event_date = ev.get("date", "")
+                event_time = ev.get("time") or "20:00"
+                if not title or not event_date:
+                    print(f"   ⏭️ Dropping incomplete event: {title!r}")
+                    continue
+                all_events.append({
+                    "title": title,
+                    "venue": venue_name,
+                    "date": event_date,
+                    "time": event_time[:5],
+                    "description": (ev.get("description") or "")[:500],
+                    "tags": ["orlando-weekly"],
+                    "place_id": place_id,
+                    "url": ev.get("url", ""),
+                    "image_url": ev.get("image_url") or "",
+                })
+                count += 1
+            print(f"   ✅ {venue_name}: {count} events ready")
+
+        return all_events
+
+    def _valid_flyer_url(self, url: str) -> bool:
+        """Check a flyer URL is reachable and serves an image.
+
+        HTTP GET with stream=True (headers only — the body is never
+        downloaded), 10s timeout, no redirects. True only when the
+        status is 200 and content-type starts with "image/". Returns
+        False on any exception or mismatch, so a flaky CDN never blocks
+        event creation.
+        """
+        if not url:
+            return False
+        try:
+            r = requests.get(
+                url, stream=True, timeout=10, allow_redirects=False
+            )
+            try:
+                if r.status_code != 200:
+                    return False
+                content_type = (r.headers.get("content-type") or "").lower()
+                return content_type.startswith("image/")
+            finally:
+                r.close()
+        except Exception:
+            return False
+
     def submit_event(self, event: Dict) -> bool:
         """Submit an event to Gancio only if it's not a duplicate"""
         
@@ -283,32 +449,79 @@ class ImprovedEventSync:
 
         # DRY RUN check
         if os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"}:
-            print(f"   🧪 DRY RUN - Would submit: {event.get('title', 'Unknown')}")
+            image_url = event.get("image_url") or ""
+            flyer_suffix = (
+                " + flyer"
+                if image_url and self._valid_flyer_url(image_url)
+                else " (no flyer)"
+            )
+            print(
+                f"   🧪 DRY RUN - Would submit: "
+                f"{event.get('title', 'Unknown')}{flyer_suffix}"
+            )
             return True
 
         # Event is unique, prepare for submission
         print(f"   📤 Submitting new event: {event.get('title', 'Unknown')}")
         
         try:
-            # Convert date/time to datetime object
+            # Convert date/time to datetime object. Scraper dates/times are
+            # Orlando venue-local wall clock (America/New_York); Gancio's API
+            # stores Unix epoch seconds (matching what /api/events returns).
             event_datetime = datetime.strptime(
                 f"{event['date']} {event['time']}", "%Y-%m-%d %H:%M"
             )
             end_datetime = event_datetime + timedelta(hours=3)
-            
+
+            ny_tz = ZoneInfo("America/New_York")
             gancio_event = {
                 "title": event.get("title"),
                 "description": event.get("description", ""),
-                "start_datetime": event_datetime.isoformat(),
-                "end_datetime": end_datetime.isoformat(),
+                "start_datetime": int(
+                    event_datetime.replace(tzinfo=ny_tz).timestamp()
+                ),
+                "end_datetime": int(
+                    end_datetime.replace(tzinfo=ny_tz).timestamp()
+                ),
                 "place_id": event.get("place_id", 1),
                 "tags": event.get("tags", []),
             }
-            
+
+            # Attach flyer when the image URL is reachable. Gancio's API
+            # accepts image_url / image_name in the SAME JSON body and
+            # downloads the image server-side (axios + sharp), so no
+            # upload step is needed here.
+            image_url = event.get("image_url") or ""
+            payload = gancio_event
+            if image_url and self._valid_flyer_url(image_url):
+                payload = dict(gancio_event)
+                payload["image_url"] = image_url
+                payload["image_name"] = event.get("title", "")
+            else:
+                print(
+                    f"   ⚠️ skipping flyer for "
+                    f"{event.get('title', 'Unknown')} "
+                    f"(missing or unreachable image)"
+                )
+
             response = self.session.post(
                 f"{self.gancio_base_url}/api/event",
-                json=gancio_event
+                json=payload
             )
+
+            # A 400 could be Gancio's sharp step rejecting the image;
+            # retry once without the image fields so the event still
+            # gets created.
+            if response.status_code == 400 and "image_url" in payload:
+                payload = dict(gancio_event)
+                print(
+                    f"   ⚠️ Retrying {event.get('title', 'Unknown')} "
+                    f"without flyer (Gancio rejected image, HTTP 400)"
+                )
+                response = self.session.post(
+                    f"{self.gancio_base_url}/api/event",
+                    json=payload
+                )
             
             if response.status_code in [200, 201]:
                 print(f"   ✅ Event created successfully")
@@ -334,8 +547,18 @@ class ImprovedEventSync:
         print("\n🚀 Starting Improved Event Sync")
         print("=" * 60)
         
-        # Load ALL existing events (including unconfirmed)
-        self.load_all_existing_events()
+        # Load ALL existing events (including unconfirmed). Fail closed:
+        # if the dedup database cannot be read, refuse to submit anything —
+        # submitting against an empty dedup index would re-post every event
+        # (flooding the approval queue).
+        dedup_ok = self.load_all_existing_events()
+        dry_run = os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"}
+        if not dedup_ok and not dry_run:
+            print(
+                "❌ Dedup database unavailable — aborting ALL submissions "
+                "to avoid duplicate posts"
+            )
+            return False
         
         # Fetch events from various sources
         all_events = []
@@ -343,6 +566,21 @@ class ImprovedEventSync:
         # Fetch from Will's Pub
         willspub_events = self.fetch_willspub_events()
         all_events.extend(willspub_events)
+        print(f"   🎸 Will's Pub: {len(willspub_events)} events")
+
+        # Fetch from Orlando Weekly (Stardust Video & Coffee + My Sister's House)
+        ow_events = self.fetch_orlando_weekly_events()
+        all_events.extend(ow_events)
+        stardust_count = sum(
+            1 for e in ow_events if e.get("venue") == "Stardust Video & Coffee"
+        )
+        msh_count = sum(
+            1 for e in ow_events if e.get("venue") == "My Sister's House"
+        )
+        print(
+            f"   🗓️ Orlando Weekly: {len(ow_events)} events "
+            f"(Stardust: {stardust_count}, My Sister's House: {msh_count})"
+        )
         
         print(f"\n📋 Total events to process: {len(all_events)}")
         

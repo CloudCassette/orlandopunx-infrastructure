@@ -29,6 +29,24 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
    Event listings      JSON extraction   Flyer upload   Event creation   Live events
 ```
 
+### **Event Sources**
+- **Will's Pub** — `willspub.org` (The Events Calendar markup), handled directly in `fixed_sync_improved.py`
+- **Orlando Weekly → Stardust Video & Coffee** — CitySpark events widget via `src/scrapers/orlando_weekly.py`
+- **Orlando Weekly → My Sister's House** — same CitySpark widget; search results are filtered to cards whose **venue text** mentions "My Sister's House" (the widget also matches titles/descriptions, so events hosted elsewhere — e.g. Mood Lounge — are excluded)
+- **Flyers** — Orlando Weekly events carry a flyer `image_url` resolved from the CitySpark payload (`MediumImg` → `LargeImg` → first `Images[].url`), attached to Gancio events via the API's `image_url`/`image_name` fields (server-side download + JPEG resize via sharp)
+
+> **⚠️ My Sister's House has no Gancio place yet**, so its events are dropped
+> with a `⚠️` note until the venue is created in the Gancio admin (the fuzzy
+> `places` lookup then picks it up automatically) **or** the
+> `ORLANDO_WEEKLY_MSH_PLACE_ID` env var is set. Stardust resolves automatically
+> to place id 4 (a `ORLANDO_WEEKLY_STARDUST_PLACE_ID` override is also
+> supported). Events are never assigned to the wrong venue as a fallback.
+
+> **DRY_RUN:** the sync script and the `fixed-sync.yml` workflow run with
+> `DRY_RUN=true`, which still **runs** the script but skips all event
+> submissions — so scraping + duplicate detection are validated daily
+> without any writes.
+
 ### **Current State (as of 2026-10)**
 - **GitHub Actions**: `fixed-sync.yml` runs daily but with **`DRY_RUN=true`** — it does not write events
 - **Cron**: manual event-sync cron entry is **disabled** on the server
@@ -60,7 +78,7 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
 
 ```
 ├── src/                    # Python package (entry: sync-events, serve-gallery)
-│   ├── scrapers/           #   conduit.py, songkick.py, willspub.py
+│   ├── scrapers/           #   conduit.py, songkick.py, willspub.py, orlando_weekly.py
 │   ├── sync/               #   main.py, fixed_sync_improved.py, deduplication.py
 │   ├── gallery/            #   server.py (flyer gallery)
 │   └── utils/

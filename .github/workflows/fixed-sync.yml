@@ -22,7 +22,7 @@ env:
 jobs:
   sync-events:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
     - name: Checkout code
@@ -37,7 +37,15 @@ jobs:
         python3 -m venv venv
         source venv/bin/activate
         pip install --upgrade pip
-        pip install requests beautifulsoup4 lxml
+        pip install requests beautifulsoup4 lxml playwright
+        # Headless Chromium for the Orlando Weekly scraper.
+        # The self-hosted runner has sudo, so pull OS deps when possible.
+        if python3 -m playwright install --with-deps chromium; then
+          echo "✅ Chromium installed with system dependencies"
+        else
+          echo "⚠️ 'playwright install --with-deps' failed (no sudo?) — falling back to plain browser install"
+          python3 -m playwright install chromium
+        fi
 
     - name: Database Health Check
       run: |
@@ -65,10 +73,13 @@ jobs:
 
         echo "🚀 Running fixed sync with proper duplicate prevention"
 
-        # If DRY_RUN is globally enabled, skip running the sync script
+        # DRY_RUN=true still RUNS the script: fixed_sync_improved.py
+        # honors DRY_RUN itself and never writes events when it is set.
+        # This way scraping + duplicate detection are validated daily
+        # without any submissions.
         if [ "$DRY_RUN" = "true" ]; then
-          echo "🧪 DRY RUN: Skipping fixed_sync.py execution"
-          exit 0
+          echo "🧪 DRY RUN: script will run but NOT submit events"
+          export DRY_RUN=true
         fi
 
         if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
