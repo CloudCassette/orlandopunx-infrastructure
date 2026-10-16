@@ -13,6 +13,11 @@ jobs:
     steps:
     - name: 🔄 Checkout Repository
       uses: actions/checkout@v4
+      with:
+        # Need >= 2 commits so `git diff HEAD~1 HEAD` works for the
+        # change-detection branches below (default fetch-depth=1 makes
+        # HEAD~1 nonexistent and every deploy branch silently no-ops).
+        fetch-depth: 2
       
     - name: 📡 Deploy Locally
       run: |
