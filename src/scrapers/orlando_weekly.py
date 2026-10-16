@@ -150,28 +150,60 @@ def _elt_text(el) -> str:
         return ""
 
 
-def _flyer_url(rec) -> str:
-    """Resolve a usable flyer URL from a CitySpark API record.
+def _flyer_candidates(rec) -> list:
+    """All usable flyer URL candidates from a CitySpark API record.
 
-    Preference: MediumImg, LargeImg, then the first entry of
-    Images[].url. URLs containing "default" or the CitySpark logo path
-    ("citysparklogo") are treated as placeholders and skipped, matching
-    the `default`-URL convention of the songkick scraper. Returns ""
-    when the record is missing or no usable image exists.
+    Preference order: MediumImg, LargeImg, then each entry of Images[].url.
+    URLs containing "default" or the CitySpark logo path ("citysparklogo")
+    are treated as placeholders and skipped, matching the `default`-URL
+    convention of the songkick scraper.
     """
     if not rec:
-        return ""
+        return []
     candidates = [rec.get("MediumImg"), rec.get("LargeImg")]
     images = rec.get("Images") or []
     if isinstance(images, list):
         candidates += [
             img.get("url") for img in images if isinstance(img, dict)
         ]
+    out = []
     for url in candidates:
         url = (url or "").strip()
         low = url.lower()
         if url and "default" not in low and "citysparklogo" not in low:
-            return url
+            out.append(url)
+    return out
+
+
+def _flyer_url(rec) -> str:
+    """First usable flyer URL from a CitySpark record (no network check)."""
+    candidates = _flyer_candidates(rec)
+    return candidates[0] if candidates else ""
+
+
+def _flyer_url_live(rec, timeout=8) -> str:
+    """First flyer candidate that is genuinely reachable (200 + image/*).
+
+    CitySpark's MediumImg blobs expire; the backfill path must not trust
+    candidate order — LargeImg or Images[].url may still be live.
+    """
+    headers = {"User-Agent": USER_AGENT}
+    for url in _flyer_candidates(rec):
+        try:
+            import requests as _requests  # lazy: module stays importable w/o
+
+            r = _requests.get(
+                url, stream=True, timeout=timeout, headers=headers,
+                allow_redirects=False,
+            )
+            try:
+                ctype = (r.headers.get("content-type") or "").lower()
+                if r.status_code == 200 and ctype.startswith("image/"):
+                    return url
+            finally:
+                r.close()
+        except Exception:
+            continue
     return ""
 
 
@@ -457,6 +489,194 @@ def scrape_my_sisters_house_events():
     )
     print(f"   ✅ Found {len(events)} My Sister's House events")
     return events
+
+
+# --------------------------------------------------------------------------
+# focused title search (for backfill tooling)
+# --------------------------------------------------------------------------
+
+def _tokens(text):
+    """Significant tokens of a normalized string (drops 1-2 char noise)."""
+    return {
+        t for t in _normalize(text).split()
+        if len(t) > 2
+    }
+
+
+def _title_overlap(target_tokens, card_tokens):
+    """Fraction of the target's significant tokens present in the card."""
+    if not target_tokens:
+        return 0.0
+    return len(target_tokens & card_tokens) / len(target_tokens)
+
+
+def search_orlando_weekly_events(title, venue_keywords, date_str):
+    """Find one Orlando Weekly event card by title + venue and return its
+    flyer URL (MediumImg), or None.
+
+    Opens the CitySpark search widget (`?search=<title query>&format=all`)
+    in Playwright, then scans the rendered cards:
+      * title match is fuzzy — the card title's significant tokens must
+        overlap the target's by >= 50% (normalized, punctuation stripped)
+      * the card's `.cityVenue` text must contain one of `venue_keywords`
+      * a card whose concrete start date equals `date_str` is preferred
+    Returns the winning card's flyer URL (via `_flyer_url`, which prefers
+    MediumImg) or None. Robust by contract: never raises, logs skipped
+    cards, and the whole browser session is torn down either way.
+    """
+    if not title:
+        print("   ⏭️ search_orlando_weekly_events: empty title")
+        return None
+
+    from urllib.parse import quote
+
+    query_url = (
+        "https://www.orlandoweekly.com/events/show/"
+        f"?search={quote(title.strip())}&format=all"
+    )
+    target_tokens = _tokens(title)
+
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-blink-features=AutomationControlled",
+                ],
+            )
+            context = browser.new_context(
+                user_agent=USER_AGENT,
+                viewport={"width": 1440, "height": 2300},
+                locale="en-US",
+                timezone_id="America/New_York",
+            )
+            context.add_init_script(STEALTH_JS)
+
+            page = context.new_page()
+            page.set_default_timeout(60000)
+            api_records = {}
+
+            def _on_response(resp, _records=api_records):
+                u = resp.url
+                if u.startswith(CITYSPARK_API_PREFIX):
+                    try:
+                        import json
+
+                        body = resp.text()
+                        data = json.loads(body)
+                        for rec in data.get("Value") or []:
+                            pid = rec.get("PId")
+                            if pid is not None:
+                                _records[int(pid)] = rec
+                    except Exception:
+                        pass
+
+            page.on("response", _on_response)
+
+            try:
+                page.goto(
+                    query_url, wait_until="domcontentloaded", timeout=60000
+                )
+            except Exception as e:
+                print(f"   ❌ search navigation error: {e}")
+                browser.close()
+                return None
+
+            # Let the anti-bot challenge resolve / widget render.
+            try:
+                page.wait_for_load_state("networkidle", timeout=25000)
+            except Exception:
+                pass
+            page.wait_for_timeout(3000)
+            try:
+                page_title = page.title()
+            except Exception:
+                page_title = ""
+            if "Checking your browser" in page_title:
+                for _ in range(30):
+                    page.wait_for_timeout(2000)
+                    try:
+                        if "Checking your browser" not in (page.title() or ""):
+                            break
+                    except Exception:
+                        pass
+
+            # Score cards: (overlap, exact_date, flyer_url)
+            best = None  # (overlap, exact_date, flyer_url, title_text)
+            wraps = page.query_selector_all(".csEvWrap")
+            if not wraps:
+                print(
+                    f"   ⏭️ search found no cards for {title[:60]!r}"
+                )
+                browser.close()
+                return None
+
+            for wrap in wraps:
+                try:
+                    card_title = _elt_text(wrap.query_selector(".csOneLine"))
+                    venue_text = _elt_text(wrap.query_selector(".cityVenue"))
+                    if not card_title:
+                        continue
+
+                    card_tokens = _tokens(card_title)
+                    overlap = _title_overlap(target_tokens, card_tokens)
+                    if overlap < 0.5:
+                        print(
+                            f"   ⏭️ TITLE MISMATCH ({overlap:.0%}): "
+                            f"{card_title[:50]!r}"
+                        )
+                        continue
+
+                    norm_venue = _normalize(venue_text)
+                    if not any(kw in norm_venue for kw in venue_keywords):
+                        print(
+                            f"   ⏭️ VENUE MISMATCH: {card_title[:50]!r} "
+                            f"@ {venue_text[:40]!r}"
+                        )
+                        continue
+
+                    card_date = (wrap.get_attribute("data-date") or "")[:10]
+                    exact_date = bool(date_str and card_date == date_str)
+
+                    pid = None
+                    a_el = wrap.query_selector("a[href]")
+                    if a_el is not None:
+                        href = a_el.get_attribute("href") or ""
+                        m = re.search(
+                            r"/events/details/[^/]+/(\d+)", href
+                        )
+                        if m:
+                            pid = int(m.group(1))
+                    flyer_url = _flyer_url_live(
+                        api_records.get(pid)
+                    ) if pid else ""
+
+                    print(
+                        f"   🔍 candidate: {card_title[:50]!r} "
+                        f"overlap {overlap:.0%} "
+                        f"exact_date={exact_date} "
+                        f"flyer={'yes' if flyer_url else 'no'}"
+                    )
+                    key = (overlap, exact_date)
+                    if best is None or key > (best[0], best[1]):
+                        best = (overlap, exact_date, flyer_url, card_title)
+                except Exception as e:
+                    print(f"   ❌ error scanning search card: {e}")
+                    continue
+
+            browser.close()
+
+            if best is None:
+                print(
+                    f"   ℹ️ no matching card for {title[:60]!r} — "
+                    f"no flyer"
+                )
+                return None
+            return best[2] or None
+    except Exception as e:
+        print(f"   ❌ search_orlando_weekly_events failed: {e}")
+        return None
 
 
 def _fmt_event(ev):

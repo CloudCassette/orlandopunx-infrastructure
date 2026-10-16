@@ -30,7 +30,8 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
 ```
 
 ### **Event Sources**
-- **Will's Pub** — `willspub.org` (The Events Calendar markup), handled directly in `fixed_sync_improved.py`
+- **Will's Pub** — `willspub.org` (TicketWeb markup), via `src/scrapers/willspub.py` (http + WebKit UA; site 403s https/default UAs)
+- **Conduit** — `conduitfl.com` (TicketWeb markup), via `src/scrapers/conduit.py`, place_id 5
 - **Orlando Weekly → Stardust Video & Coffee** — CitySpark events widget via `src/scrapers/orlando_weekly.py`
 - **Orlando Weekly → My Sister's House** — same CitySpark widget; search results are filtered to cards whose **venue text** mentions "My Sister's House" (the widget also matches titles/descriptions, so events hosted elsewhere — e.g. Mood Lounge — are excluded)
 - **Flyers** — Orlando Weekly events carry a flyer `image_url` resolved from the CitySpark payload (`MediumImg` → `LargeImg` → first `Images[].url`), attached to Gancio events via the API's `image_url`/`image_name` fields (server-side download + JPEG resize via sharp)
@@ -42,9 +43,11 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
 > to place id 4 (a `ORLANDO_WEEKLY_STARDUST_PLACE_ID` override is also
 > supported). Events are never assigned to the wrong venue as a fallback.
 
-> **DRY_RUN:** live submissions are enabled. While hardening, runs were
-> DRY_RUN-only (scrape + dedup validation without writes); a manual
-> dry-run is still available via the workflow's `dry_run` dispatch input.
+> **Flyer assurance:** after submitting an event with a flyer, the runner
+> verifies Gancio stored media (the POST response tells us) and re-attaches
+> via an authenticated PUT if not; `scripts/backfill-flyers.py` can backfill
+> flyers for already-queued events (Orlando Weekly title search + liveness
+> checks; dry-run by default).
 
 ### **Current State (as of 2026-10)**
 - **GitHub Actions**: `fixed-sync.yml` runs daily at 9am EST and **submits events live** (new events land unconfirmed in the admin approval queue); a manual dry-run is available via workflow_dispatch

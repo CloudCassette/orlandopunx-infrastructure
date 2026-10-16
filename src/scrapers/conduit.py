@@ -1,361 +1,344 @@
 #!/usr/bin/env python3
 """
-🎸 Conduit FL Event Scraper
-===========================
-Scrapes events from https://www.conduitfl.com/
-Includes flyer image download functionality
+🎸 Conduit FL Event Scraper (TicketWeb plugin markup)
+=====================================================
+Scrapes events from https://www.conduitfl.com/. The homepage uses
+TicketWeb's plugin markup — one event per `div.tw-section`:
+
+    <div class="tw-section">
+      <div class="tw-event-datetime">
+        <span class="tw-day-of-week">Fri</span>
+        <span class="tw-event-date">10.16</span>
+      </div>
+      <div class="tw-image"><a href="/tm-event/...">
+        <img class="event-img large" src="...flyer..."/></a></div>
+      <div class="tw-name"> <a href="/tm-event/...">Title</a> </div>
+      <div class="tw-date-time">
+        <span class="tw-event-time-complete">
+          <span class="tw-event-time">Show: 08:00PM</span>
+        </span>
+        <span class="tw-event-timezone">EDT</span>
+        <span class="tw-event-door-time-complete">
+          (Doors: <span class="tw-event-door-time">08:00PM</span>)
+        </span>
+      </div>
+      <div class="tw-age-restriction">18 and up</div>
+      <div class="tw-info-price-buy-tix">
+        <span class="tw-price">$19.90</span> ...
+      </div>
+    </div>
+
+Verified against the live page on 2026-10-16: 40 `.tw-section` blocks =
+**20 unique events each rendered twice** (the plugin emits the list twice),
+so results are deduplicated on (title, date).
+
+Date format: day-of-week + `MM.DD` with NO year. The year is recovered
+by matching the stated weekday against the current / next calendar year.
+
+Selectors / structure may change without notice (they did once already) —
+the `parse_conduit_events_from_html` function is the single place to
+repair. Events without a parseable concrete date are logged + skipped.
+
+Existing function names are kept for callers:
+    scrape_conduit_events(download_images=True)
+    parse_conduit_events_from_html(soup, url, headers, download_images=True)
+
+Standalone usage:
+    python src/scrapers/conduit.py
 """
 
-import hashlib
 import json
-import os
-import random
 import re
 import time
 from datetime import datetime, timedelta
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
+CONDUIT_URL = "https://www.conduitfl.com/"
 
-def scrape_conduit_events(download_images=True):
-    """Scrape events from Conduit FL"""
-    print("🎸 Scraping Conduit FL events...")
+USER_AGENTS = [
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+]
 
-    url = "https://www.conduitfl.com/"
+_SKIP_PHRASES = [
+    "More Info",
+    "Buy Tickets",
+    "Click here",
+    "View Details",
+    "Learn More",
+    "Read More",
+]
 
-    # Try multiple user agents to avoid blocking
-    user_agents = [
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
-    ]
-
-    for attempt, user_agent in enumerate(user_agents):
-        headers = {
-            "User-Agent": user_agent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-        }
-
-        try:
-            # Add random delay to appear more human-like
-            if attempt > 0:
-                time.sleep(random.uniform(2, 5))
-
-            response = requests.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.content, "html.parser")
-
-            # Parse events from the text content
-            events = parse_conduit_events_from_html(soup, url, headers, download_images)
-
-            print(f"🎸 Successfully scraped {len(events)} Conduit events")
-            return events
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 403:
-                print(
-                    f"⚠️  Attempt {attempt + 1}: Access forbidden, trying different user agent..."
-                )
-                continue
-            else:
-                print(f"❌ HTTP Error: {e}")
-                break
-        except Exception as e:
-            print(f"❌ Error on attempt {attempt + 1}: {e}")
-            if attempt == len(user_agents) - 1:
-                break
-            continue
-
-    print("❌ All attempts failed, returning empty list")
-    return []
+_DOW = {
+    "mon": 0, "tue": 1, "wed": 2, "thu": 3,
+    "fri": 4, "sat": 5, "sun": 6,
+}
+_MMDD_RE = re.compile(r"(\d{1,2})\.(\d{1,2})")
+_TIME_RE = re.compile(r"(\d{1,2}):(\d{2})\s*([AaPp][Mm])")
 
 
-def parse_conduit_events_from_html(soup, url, headers, download_images=True):
-    """Parse events from HTML and download images"""
-    events = []
-    current_year = datetime.now().year
-
-    # First, try to find individual event containers with images
-    event_images = extract_event_images(soup, url)
-
-    # Get all text content for parsing
-    page_text = soup.get_text()
-
-    # Parse events using regex pattern
-    # Pattern: "Day MM.DD Event Title Show: HH:MMPM EDT (Doors: HH:MMPM) Age restriction $Price"
-    event_pattern = r"(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{2}\.\d{2})\s+(.+?)\s+Show:\s+(\d{1,2}:\d{2}[AP]M)\s+EDT\s+\(Doors:\s+\d{1,2}:\d{2}[AP]M\s*\)\s+(.*?)\s+\$(\d+\.\d+|\d+)"
-
-    matches = list(re.finditer(event_pattern, page_text, re.MULTILINE | re.DOTALL))
-
-    for i, match in enumerate(matches):
-        try:
-            day_name = match.group(1)
-            date_str = match.group(2)  # MM.DD format
-            title = match.group(3).strip()
-            show_time = match.group(4)
-            age_info = match.group(5).strip()
-            price = match.group(6)
-
-            # Parse date
-            month, day = date_str.split(".")
-            month, day = int(month), int(day)
-
-            # Try current year first
-            try:
-                event_datetime = datetime(current_year, month, day)
-                # If the date is more than 30 days in the past, assume next year
-                if event_datetime < datetime.now() - timedelta(days=30):
-                    event_datetime = datetime(current_year + 1, month, day)
-            except ValueError:
-                # Invalid date, skip
-                continue
-
-            # Parse time
-            try:
-                time_obj = datetime.strptime(show_time, "%I:%M%p")
-                event_time = time_obj.strftime("%H:%M")
-            except ValueError:
-                # Default time if parsing fails
-                event_time = "19:00"
-
-            # Clean up title
-            title = clean_event_title(title)
-
-            # Skip if title is too short or contains unwanted text
-            if len(title) < 3 or should_skip_title(title):
-                continue
-
-            # Try to find matching image for this event
-            flyer_url = None
-            flyer_filename = None
-
-            if download_images and event_images:
-                # Try to match event with image (by index)
-                if i < len(event_images):
-                    flyer_url = event_images[i]
-                    flyer_filename = download_flyer(flyer_url, title, date_str, headers)
-
-            # Create event object
-            event = {
-                "title": title,
-                "date": event_datetime.strftime("%Y-%m-%d"),
-                "time": event_time,
-                "venue": "Conduit",
-                "venue_url": "https://www.conduitfl.com/",
-                "url": url,
-                "description": f"Live music at Conduit. {age_info}. Tickets: ${price}",
-                "price": f"${price}",
-                "age_restriction": age_info,
-                "source": "conduit",
-            }
-
-            # Add image information if available
-            if flyer_url:
-                event["flyer_url"] = flyer_url
-            if flyer_filename:
-                event["flyer_filename"] = flyer_filename
-
-            # Check for duplicates
-            if not any(
-                e["title"] == event["title"] and e["date"] == event["date"]
-                for e in events
-            ):
-                events.append(event)
-                image_info = f" (🖼️  {flyer_filename})" if flyer_filename else ""
-                print(f"   ✅ {title} - {event['date']} at {event_time}{image_info}")
-
-        except Exception as e:
-            print(f"   ❌ Error parsing event: {e}")
-            continue
-
-    return events
-
-
-def extract_event_images(soup, base_url):
-    """Extract event flyer images from the page"""
-    flyer_urls = []
-
-    # Look for images with event-related attributes
-    for img in soup.find_all("img"):
-        src = img.get("src", "")
-        alt = img.get("alt", "").lower()
-
-        # Skip small images, icons, logos
-        if any(skip in src.lower() for skip in ["logo", "icon", "avatar", "thumb"]):
-            continue
-
-        # Look for event flyers - Conduit uses TicketWeb images
-        if "ticketweb.com" in src and "Original.jpg" in src:
-            flyer_urls.append(src)  # Already absolute URL
-        elif any(
-            keyword in src.lower() for keyword in ["event", "show", "flyer", "poster"]
-        ):
-            flyer_urls.append(urljoin(base_url, src))
-        elif any(keyword in alt for keyword in ["event", "show", "flyer", "poster"]):
-            flyer_urls.append(urljoin(base_url, src))
-
-    print(f"🖼️  Found {len(flyer_urls)} potential flyer images")
-    return flyer_urls
-
-
-def download_flyer(flyer_url, event_title, date_str, headers):
-    """Download a flyer image"""
-    try:
-        # Create filename
-        safe_title = re.sub(r"[^\w\s-]", "", event_title)
-        safe_title = re.sub(r"[-\s]+", "-", safe_title)
-        safe_title = safe_title[:50]  # Limit length
-
-        # Get file extension from URL
-        parsed_url = urlparse(flyer_url)
-        ext = os.path.splitext(parsed_url.path)[1]
-        if not ext:
-            ext = ".jpg"  # Default
-
-        filename = f"conduit-{date_str}-{safe_title}{ext}"
-
-        # Create flyers directory if it doesn't exist
-        flyers_dir = "flyers"
-        if not os.path.exists(flyers_dir):
-            os.makedirs(flyers_dir)
-
-        filepath = os.path.join(flyers_dir, filename)
-
-        # Skip if already downloaded
-        if os.path.exists(filepath):
-            print(f"   📁 Flyer already exists: {filename}")
-            return filename
-
-        # Download image
-        response = requests.get(flyer_url, headers=headers, timeout=30)
-        response.raise_for_status()
-
-        # Verify it's actually an image
-        content_type = response.headers.get("content-type", "")
-        if not content_type.startswith("image/"):
-            print(f"   ⚠️  Not an image: {content_type}")
-            return None
-
-        # Save image
-        with open(filepath, "wb") as f:
-            f.write(response.content)
-
-        print(f"   📸 Downloaded flyer: {filename}")
-        return filename
-
-    except Exception as e:
-        print(f"   ❌ Error downloading flyer: {e}")
-        return None
-
+# --------------------------------------------------------------------------
+# helpers
+# --------------------------------------------------------------------------
 
 def clean_event_title(title):
-    """Clean up event title"""
-    # Remove extra whitespace
-    title = re.sub(r"\s+", " ", title).strip()
-
-    # Remove common suffixes
+    """Clean up an event title."""
+    title = re.sub(r"\s+", " ", title or "").strip()
     title = re.sub(
         r"\s+(Show|Concert|Live|at Conduit)$", "", title, flags=re.IGNORECASE
     )
-
-    # Remove "Presents:" if it's at the beginning and followed by actual event name
     title = re.sub(r"^.*?Presents:\s*", "", title, flags=re.IGNORECASE)
-
     return title.strip()
 
 
 def should_skip_title(title):
-    """Check if title should be skipped"""
-    skip_phrases = [
-        "More Info",
-        "Buy Tickets",
-        "Tickets",
-        "Click here",
-        "View Details",
-        "Learn More",
-        "Read More",
-    ]
-    return any(phrase in title for phrase in skip_phrases)
+    """Check if a title is UI boilerplate rather than an event name."""
+    return any(phrase.lower() in (title or "").lower() for phrase in _SKIP_PHRASES)
+
+
+def _to_24h(hour, minute, period):
+    hour = int(hour)
+    minute = int(minute)
+    p = period.lower()
+    if p == "pm" and hour != 12:
+        hour += 12
+    elif p == "am" and hour == 12:
+        hour = 0
+    return f"{hour:02d}:{minute:02d}"
+
+
+def resolve_conduit_date(dow_text, mmdd_text):
+    """Resolve 'Fri' + '10.16' (no year) to 'YYYY-MM-DD' or None.
+
+    The weekday is verified against the calendar so a date near the
+    year boundary (e.g. `12.30` shown in December) resolves to the
+    correct *upcoming* year. Always picks the occurrence that is not
+    more than 30 days in the past (next year is tried automatically).
+    """
+    if not mmdd_text:
+        return None
+    m = _MMDD_RE.search(mmdd_text.strip())
+    if not m:
+        return None
+    month, day = int(m.group(1)), int(m.group(2))
+    wanted = _DOW.get((dow_text or "").lower()[:3])
+
+    now = datetime.now()
+    candidates = [now.year, now.year + 1]
+    if now.month == 1:  # january listings can still be last December's page
+        candidates.insert(0, now.year - 1)
+
+    best = None
+    for year in candidates:
+        try:
+            dt = datetime(year, month, day)
+        except ValueError:
+            continue
+        age = (now - dt).days
+        if age > 30:  # too far in the past -> not an upcoming listing
+            continue
+        # Prefer a weekday match; if the stated weekday is unknown
+        # (empty/missing), accept the nearest future date.
+        if wanted is not None and dt.weekday() != wanted:
+            continue
+        score = age  # smaller age (nearer future) wins
+        if best is None or score < best[0]:
+            best = (score, dt)
+    if best is None:
+        return None
+    return best[1].strftime("%Y-%m-%d")
+
+
+def extract_event_flyer(section, base_url):
+    """Flyer URL from the `.tw-image img` inside a section (or '')."""
+    img = section.find("img", class_="event-img")
+    if img and img.get("src"):
+        return urljoin(base_url, img["src"].strip())
+    return ""
+
+
+def build_description(age_info, price):
+    """Conduit has no description block on the list page — build one."""
+    parts = ["Live music at Conduit."]
+    if age_info:
+        parts.append(age_info)
+    if price:
+        parts.append(f"Tickets: {price}")
+    return " ".join(parts)
+
+
+# --------------------------------------------------------------------------
+# parsing (DOM-in, dicts-out — testable without network)
+# --------------------------------------------------------------------------
+
+def parse_conduit_events_from_html(soup, url, headers, download_images=True):
+    """Parse Conduit events from a BeautifulSoup of the homepage.
+
+    Returns a list of dicts:
+        title, date (YYYY-MM-DD), time (HH:MM), venue, venue_url, url,
+        description, price, age_restriction, source, flyer_url
+    Deduplicated on (title, date) — the TicketWeb plugin renders the
+    event list twice on the homepage.
+    """
+    events = []
+    seen = set()
+    sections = soup.find_all(class_="tw-section")
+    if not sections:
+        print("   ⚠️ No .tw-section event blocks found on Conduit page")
+        return events
+
+    for section in sections:
+        try:
+            name_el = section.find(class_="tw-name")
+            if not name_el:
+                continue
+            a = name_el.find("a")
+            raw_title = (
+                a.get_text(strip=True) if a is not None
+                else name_el.get_text(strip=True)
+            )
+            title = clean_event_title(raw_title)
+            if not title or len(title) < 3 or should_skip_title(title):
+                continue
+
+            # All sections on the homepage are Conduit's own events, but
+            # pin the venue anyway.
+            venue_txt = section.find(class_="tw-venue-details")
+            venue_name = venue_txt.get_text(" ", strip=True) if venue_txt else ""
+            venue = venue_name or "Conduit"
+
+            dow_el = section.find(class_="tw-day-of-week")
+            dow_text = dow_el.get_text(strip=True) if dow_el else ""
+            date_el = section.find(class_="tw-event-date")
+            mmdd_text = date_el.get_text(strip=True) if date_el else ""
+
+            event_date = resolve_conduit_date(dow_text, mmdd_text)
+            if not event_date:
+                print(
+                    f"   ⏭️ SKIPPED (no parseable date): {title[:60]!r} — "
+                    f"dow {dow_text!r}, date {mmdd_text!r}"
+                )
+                continue
+
+            time_el = section.find(class_="tw-event-time")
+            time_text = time_el.get_text(strip=True) if time_el else ""
+            tm = _TIME_RE.search(time_text)
+            event_time = _to_24h(tm.group(1), tm.group(2), tm.group(3)) if tm else "19:00"
+
+            price_el = section.find(class_="tw-price")
+            price = price_el.get_text(strip=True) if price_el else ""
+            age_el = section.find(class_="tw-age-restriction")
+            age = age_el.get_text(strip=True) if age_el else ""
+
+            href = a.get("href") if a is not None else None
+            event_url = urljoin(url, href) if href else url
+
+            key = (title, event_date)
+            if key in seen:
+                print(f"   ⏭️ DEDUP (plugin renders list twice): {title[:50]!r} {event_date}")
+                continue
+            seen.add(key)
+
+            events.append({
+                "title": title,
+                "date": event_date,
+                "time": event_time,
+                "venue": venue,
+                "venue_url": url,
+                "url": event_url,
+                "description": build_description(age, price),
+                "price": price,
+                "age_restriction": age,
+                "source": "conduit",
+                "flyer_url": extract_event_flyer(section, url),
+            })
+            print(f"   ✅ {title} - {event_date} at {event_time}")
+        except Exception as e:
+            print(f"   ❌ Error parsing Conduit event: {e}")
+            continue
+    return events
+
+
+# --------------------------------------------------------------------------
+# public API
+# --------------------------------------------------------------------------
+
+def scrape_conduit_events(download_images=True):
+    """Scrape events from Conduit FL.
+
+    `download_images` is accepted for signature compatibility; flyers are
+    surfaced as URLs (the page already embeds them), so nothing is
+    downloaded here.
+    """
+    print("🎸 Scraping Conduit FL events (TicketWeb markup)...")
+    last_err = None
+    for attempt, user_agent in enumerate(USER_AGENTS):
+        headers = {
+            "User-Agent": user_agent,
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/webp,*/*;q=0.8"
+            ),
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+        try:
+            if attempt > 0:
+                time.sleep(2)
+            response = requests.get(CONDUIT_URL, headers=headers, timeout=30)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, "html.parser")
+            events = parse_conduit_events_from_html(
+                soup, CONDUIT_URL, headers, download_images
+            )
+            print(f"🎸 Successfully scraped {len(events)} Conduit events")
+            return events
+        except requests.exceptions.HTTPError as e:
+            last_err = e
+            if e.response is not None and e.response.status_code == 403:
+                print(
+                    f"⚠️  Attempt {attempt + 1}: access forbidden, "
+                    f"trying different user agent..."
+                )
+                continue
+            print(f"❌ HTTP Error: {e}")
+            break
+        except Exception as e:
+            last_err = e
+            print(f"❌ Error on attempt {attempt + 1}: {e}")
+    print(f"❌ All attempts failed ({last_err}), returning empty list")
+    return []
 
 
 def save_events(events, filename="conduit_events.json"):
-    """Save events to JSON file"""
+    """Save events to JSON file."""
     with open(filename, "w") as f:
         json.dump(events, f, indent=2)
     print(f"💾 Saved {len(events)} events to {filename}")
 
 
-def test_with_sample_data():
-    """Test the parser with sample data from external context"""
-    print("🧪 Testing with sample data...")
-
-    sample_text = """Tue 08.19 Scream Queen Podcast Presents: Horror Trivia at Conduit Show: 07:00PM EDT (Doors: 07:00PM ) 18 and up $0.00 More Info Buy Tickets Wed 08.20 Void. Terror. Silence: A FREE Night of Goth and Industrial Music (Summer Tiki Edition) Show: 09:00PM EDT (Doors: 09:00PM ) 18 and up $0.00 More Info Buy Tickets Thu 08.21 AJ McQueen "When We Evolve" Tour Show: 07:00PM EDT (Doors: 07:00PM ) 18 and up $26.91 More Info Buy Tickets Fri 08.22 Impending Doom and With Blood Comes Cleaning Show: 07:00PM EDT (Doors: 07:00PM ) 18 and up $26.91 More Info Buy Tickets"""
-
-    # Create a mock soup object for testing
-    mock_soup = BeautifulSoup(sample_text, "html.parser")
-    events = parse_conduit_events_from_html(
-        mock_soup, "https://www.conduitfl.com/", {}, download_images=False
-    )
-
-    if events:
-        print(f"✅ Parsed {len(events)} events from sample data!")
-        for event in events:
-            print(
-                f"   🎵 {event['title']} - {event['date']} at {event['time']} (${event['price']})"
-            )
-        return events
-    else:
-        print("❌ Failed to parse sample data")
-        return []
-
-
-def parse_conduit_events_from_text(page_text, url):
-    """Parse events from page text using regex patterns (legacy function for compatibility)"""
-    # Create a mock soup object and use the main parsing function
-    mock_soup = BeautifulSoup(page_text, "html.parser")
-    return parse_conduit_events_from_html(mock_soup, url, {}, download_images=False)
-
-
 if __name__ == "__main__":
-    # First test with sample data
-    sample_events = test_with_sample_data()
-
-    print("\n" + "=" * 50)
-    print("Now trying to scrape live website...")
-
-    # Then try scraping live website with images
-    events = scrape_conduit_events(download_images=True)
-
-    # If live scraping failed but sample parsing worked, use sample events as template
-    if not events and sample_events:
-        print("ℹ️  Live scraping failed, but sample parsing worked.")
-        print(
-            "   The scraper logic is correct, but the website may be blocking requests."
-        )
-        events = sample_events
-
+    events = scrape_conduit_events(download_images=False)
     if events:
         save_events(events)
-
         print("\n📋 CONDUIT EVENTS SUMMARY:")
         print("=" * 30)
-        for event in events:
-            print(f"🎵 {event['title']}")
-            print(f"   📅 {event['date']} at {event['time']}")
-            print(f"   📍 {event['venue']}")
-            print(f"   💰 {event['price']}")
-            print(f"   🔞 {event['age_restriction']}")
-            if "flyer_filename" in event:
-                print(f"   🖼️  {event['flyer_filename']}")
+        for ev in events:
+            print(f"🎵 {ev['title']}")
+            print(f"   📅 {ev['date']} at {ev['time']}")
+            print(f"   📍 {ev['venue']}")
+            print(f"   💰 {ev['price']}")
+            print(f"   🔞 {ev['age_restriction']}")
+            print(f"   🖼️  {ev.get('flyer_url') or '(none)'}")
             print()
     else:
         print("❌ No events found")
