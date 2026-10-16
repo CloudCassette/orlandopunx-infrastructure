@@ -42,14 +42,13 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
 > to place id 4 (a `ORLANDO_WEEKLY_STARDUST_PLACE_ID` override is also
 > supported). Events are never assigned to the wrong venue as a fallback.
 
-> **DRY_RUN:** the sync script and the `fixed-sync.yml` workflow run with
-> `DRY_RUN=true`, which still **runs** the script but skips all event
-> submissions — so scraping + duplicate detection are validated daily
-> without any writes.
+> **DRY_RUN:** live submissions are enabled. While hardening, runs were
+> DRY_RUN-only (scrape + dedup validation without writes); a manual
+> dry-run is still available via the workflow's `dry_run` dispatch input.
 
 ### **Current State (as of 2026-10)**
-- **GitHub Actions**: `fixed-sync.yml` runs daily but with **`DRY_RUN=true`** — it does not write events
-- **Cron**: manual event-sync cron entry is **disabled** on the server
+- **GitHub Actions**: `fixed-sync.yml` runs daily at 9am EST and **submits events live** (new events land unconfirmed in the admin approval queue); a manual dry-run is available via workflow_dispatch
+- **Cron**: manual event-sync cron entry is **disabled** on the server (superseded by the Actions workflow)
 - **Manual trigger**: `src/sync/fixed_sync_improved.py` (the only maintained sync runner) and `scripts/event-sync/sync_wrapper_fixed.sh`
 - **Duplicates**: a one-off Selenium cleanup removed duplicate events; the identity-verifier tooling is archived under the `pre-cleanup-2026-10-11` tag
 - Do **not** re-enable sync without checking current Gancio state first
