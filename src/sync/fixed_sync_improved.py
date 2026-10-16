@@ -315,9 +315,13 @@ class ImprovedEventSync:
 
         Priority:
           1. Environment override (`ORLANDO_WEEKLY_STARDUST_PLACE_ID` /
-             `ORLANDO_WEEKLY_MSH_PLACE_ID`)
+             `ORLANDO_WEEKLY_MSH_PLACE_ID` /
+             `ORLANDO_WEEKLY_SOCIAL_PLACE_ID` /
+             `ORLANDO_WEEKLY_BEACHAM_PLACE_ID` /
+             `ORLANDO_WEEKLY_ABBEY_PLACE_ID`)
           2. Fuzzy match against the `places` table in self.db_path
-             (e.g. `name LIKE '%sister%house%'`, `'%stardust%'`)
+             (e.g. `name LIKE '%sister%house%'`, `'%stardust%'`,
+             `'%social%'`, `'%beacham%'`, `'%abbey%'`)
 
         Never falls back to Will's Pub (place 1): an event at the wrong
         venue is worse than no event. Returns None when unresolved so the
@@ -333,6 +337,15 @@ class ImprovedEventSync:
         elif "stardust" in lower:
             env_key = "ORLANDO_WEEKLY_STARDUST_PLACE_ID"
             pattern = "%stardust%"
+        elif "social" in lower:
+            env_key = "ORLANDO_WEEKLY_SOCIAL_PLACE_ID"
+            pattern = "%social%"
+        elif "beacham" in lower:
+            env_key = "ORLANDO_WEEKLY_BEACHAM_PLACE_ID"
+            pattern = "%beacham%"
+        elif "abbey" in lower:
+            env_key = "ORLANDO_WEEKLY_ABBEY_PLACE_ID"
+            pattern = "%abbey%"
         if not pattern:
             print(f"   ⚠️ No place resolution rule for venue: {name}")
             return None
@@ -370,7 +383,8 @@ class ImprovedEventSync:
         return None
 
     def fetch_orlando_weekly_events(self) -> List[Dict]:
-        """Fetch Orlando Weekly events (Stardust + My Sister's House).
+        """Fetch Orlando Weekly events (Stardust, My Sister's House,
+        The Social, The Beacham, The Abbey).
 
         Requires `playwright`. When it is missing (or scraping fails) a
         clear warning is printed and [] is returned so the Will's Pub
@@ -382,6 +396,9 @@ class ImprovedEventSync:
             from src.scrapers.orlando_weekly import (
                 scrape_my_sisters_house_events,
                 scrape_stardust_events,
+                scrape_the_abbey_events,
+                scrape_the_beacham_events,
+                scrape_the_social_events,
             )
         except ImportError as e:
             print(
@@ -395,6 +412,9 @@ class ImprovedEventSync:
         sources = [
             ("Stardust Video & Coffee", scrape_stardust_events),
             ("My Sister's House", scrape_my_sisters_house_events),
+            ("The Social", scrape_the_social_events),
+            ("The Beacham", scrape_the_beacham_events),
+            ("The Abbey", scrape_the_abbey_events),
         ]
 
         for venue_name, fetcher in sources:
@@ -761,7 +781,7 @@ class ImprovedEventSync:
         all_events.extend(willspub_events)
         print(f"   🎸 Will's Pub: {len(willspub_events)} events")
 
-        # Fetch from Orlando Weekly (Stardust Video & Coffee + My Sister's House)
+        # Fetch from Orlando Weekly (5 CitySpark venues)
         ow_events = self.fetch_orlando_weekly_events()
         all_events.extend(ow_events)
         stardust_count = sum(
@@ -770,9 +790,20 @@ class ImprovedEventSync:
         msh_count = sum(
             1 for e in ow_events if e.get("venue") == "My Sister's House"
         )
+        social_count = sum(
+            1 for e in ow_events if e.get("venue") == "The Social"
+        )
+        beacham_count = sum(
+            1 for e in ow_events if e.get("venue") == "The Beacham"
+        )
+        abbey_count = sum(
+            1 for e in ow_events if e.get("venue") == "The Abbey"
+        )
         print(
             f"   🗓️ Orlando Weekly: {len(ow_events)} events "
-            f"(Stardust: {stardust_count}, My Sister's House: {msh_count})"
+            f"(Stardust: {stardust_count}, My Sister's House: {msh_count}, "
+            f"The Social: {social_count}, The Beacham: {beacham_count}, "
+            f"The Abbey: {abbey_count})"
         )
 
         # Fetch from Conduit

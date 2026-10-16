@@ -3,11 +3,14 @@
 Orlando Weekly event scraper (CitySpark widget on orlandoweekly.com)
 ====================================================================
 
-Scrapes upcoming events for two Orlando venues published in Orlando
+Scrapes upcoming events for five Orlando venues published in Orlando
 Weekly's CitySpark-powered events calendar:
 
 1. Stardust Video & Coffee
 2. My Sister's House (Winter Park, FL)
+3. The Social (downtown Orlando)
+4. The Beacham (downtown Orlando)
+5. The Abbey (downtown Orlando)
 
 Surfaces (verified against the live DOM on 2026-10-15):
 
@@ -91,6 +94,23 @@ STARDUST_URLS = [
 MY_SISTERS_HOUSE_URL = (
     "https://www.orlandoweekly.com/events/show/"
     "?search=My+Sister%27s+House&format=all"
+)
+
+# Once again uses the CitySpark search surface (see docstring notes):
+# the downtown venues have no dedicated OW venue page either, and the
+# widget's search matches titles/descriptions too, so cards are filtered
+# on `.cityVenue` text (see `_extract_cards`).
+THE_SOCIAL_URL = (
+    "https://www.orlandoweekly.com/events/show/"
+    "?search=The+Social&format=all"
+)
+THE_BEACHAM_URL = (
+    "https://www.orlandoweekly.com/events/show/"
+    "?search=The+Beacham&format=all"
+)
+THE_ABBEY_URL = (
+    "https://www.orlandoweekly.com/events/show/"
+    "?search=The+Abbey&format=all"
 )
 
 USER_AGENT = (
@@ -467,6 +487,23 @@ def _fetch_cards(urls, venue_keywords, venue_name):
 # public API
 # --------------------------------------------------------------------------
 
+def _scrape_search_venue(search_url, venue_keywords, venue_name):
+    """Shared wrapper: one CitySpark search surface -> events for a venue.
+
+    All venues fetched from the `.../events/show/?search=<q>&format=all`
+    widget share this shape: open the search page, let `_fetch_cards`
+    render it, keep only cards whose `.cityVenue` text matches the
+    venue keywords, and print the count for the logs. Returns `[]` (and
+    never raises) on any failure.
+    """
+    print(f"🗓️ Scraping Orlando Weekly — {venue_name}...")
+    events, used = _fetch_cards(
+        [search_url], venue_keywords, venue_name
+    )
+    print(f"   ✅ Found {len(events)} {venue_name} events")
+    return events
+
+
 def scrape_stardust_events():
     """Upcoming Stardust Video & Coffee events (title/date/time/venue/url)."""
     print("🗓️ Scraping Orlando Weekly — Stardust Video & Coffee...")
@@ -481,14 +518,38 @@ def scrape_stardust_events():
 
 def scrape_my_sisters_house_events():
     """Upcoming My Sister's House events (Winter Park; venue-text filtered)."""
-    print("🗓️ Scraping Orlando Weekly — My Sister's House...")
-    events, used = _fetch_cards(
-        [MY_SISTERS_HOUSE_URL],
+    return _scrape_search_venue(
+        MY_SISTERS_HOUSE_URL,
         ["my sisters house"],
         "My Sister's House",
     )
-    print(f"   ✅ Found {len(events)} My Sister's House events")
-    return events
+
+
+def scrape_the_social_events():
+    """Upcoming The Social events (downtown Orlando; venue-text filtered)."""
+    return _scrape_search_venue(
+        THE_SOCIAL_URL,
+        ["the social"],
+        "The Social",
+    )
+
+
+def scrape_the_beacham_events():
+    """Upcoming The Beacham events (downtown Orlando; venue-text filtered)."""
+    return _scrape_search_venue(
+        THE_BEACHAM_URL,
+        ["beacham"],
+        "The Beacham",
+    )
+
+
+def scrape_the_abbey_events():
+    """Upcoming The Abbey events (downtown Orlando; venue-text filtered)."""
+    return _scrape_search_venue(
+        THE_ABBEY_URL,
+        ["the abbey"],
+        "The Abbey",
+    )
 
 
 # --------------------------------------------------------------------------
@@ -704,5 +765,21 @@ if __name__ == "__main__":
     for ev in msh[:5]:
         print(_fmt_event(ev))
 
-    print(f"\n📊 Total: {len(stardust) + len(msh)} events")
+    social = scrape_the_social_events()
+    print(f"\n🎤 THE SOCIAL ({len(social)} events):")
+    for ev in social[:5]:
+        print(_fmt_event(ev))
+
+    beacham = scrape_the_beacham_events()
+    print(f"\n🎸 THE BEACHAM ({len(beacham)} events):")
+    for ev in beacham[:5]:
+        print(_fmt_event(ev))
+
+    abbey = scrape_the_abbey_events()
+    print(f"\n⛪ THE ABBEY ({len(abbey)} events):")
+    for ev in abbey[:5]:
+        print(_fmt_event(ev))
+
+    total = len(stardust) + len(msh) + len(social) + len(beacham) + len(abbey)
+    print(f"\n📊 Total: {total} events")
     sys.exit(0)

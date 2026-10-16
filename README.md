@@ -34,14 +34,19 @@ Will's Pub Website → Python Scraper → Image Processing → Gancio API → or
 - **Conduit** — `conduitfl.com` (TicketWeb markup), via `src/scrapers/conduit.py`, place_id 5
 - **Orlando Weekly → Stardust Video & Coffee** — CitySpark events widget via `src/scrapers/orlando_weekly.py`
 - **Orlando Weekly → My Sister's House** — same CitySpark widget; search results are filtered to cards whose **venue text** mentions "My Sister's House" (the widget also matches titles/descriptions, so events hosted elsewhere — e.g. Mood Lounge — are excluded)
+- **Orlando Weekly → The Social** — same CitySpark widget (`?search=The+Social`); cards filtered on **venue text** ("The Social")
+- **Orlando Weekly → The Beacham** — same CitySpark widget (`?search=The+Beacham`); cards filtered on **venue text** ("The Beacham")
+- **Orlando Weekly → The Abbey** — same CitySpark widget (`?search=The+Abbey`); cards filtered on **venue text** ("The Abbey")
 - **Flyers** — Orlando Weekly events carry a flyer `image_url` resolved from the CitySpark payload (`MediumImg` → `LargeImg` → first `Images[].url`), attached to Gancio events via the API's `image_url`/`image_name` fields (server-side download + JPEG resize via sharp)
 
-> **⚠️ My Sister's House has no Gancio place yet**, so its events are dropped
-> with a `⚠️` note until the venue is created in the Gancio admin (the fuzzy
-> `places` lookup then picks it up automatically) **or** the
-> `ORLANDO_WEEKLY_MSH_PLACE_ID` env var is set. Stardust resolves automatically
-> to place id 4 (a `ORLANDO_WEEKLY_STARDUST_PLACE_ID` override is also
-> supported). Events are never assigned to the wrong venue as a fallback.
+> **Place resolution:** each Orlando Weekly venue resolves via the fuzzy
+> `places` lookup, or an env-var override when set (`ORLANDO_WEEKLY_STARDUST_PLACE_ID` /
+> `ORLANDO_WEEKLY_MSH_PLACE_ID` / `ORLANDO_WEEKLY_SOCIAL_PLACE_ID` /
+> `ORLANDO_WEEKLY_BEACHAM_PLACE_ID` / `ORLANDO_WEEKLY_ABBEY_PLACE_ID`). On the
+> current server all five resolve automatically: Stardust → 4, My Sister's House
+> → 22, The Social → 28, The Beacham → 27, The Abbey → 11. Until a venue's place
+> exists, its events are dropped with a `⚠️` note rather than assigned to the
+> wrong venue.
 
 > **Flyer assurance:** after submitting an event with a flyer, the runner
 > verifies Gancio stored media (the POST response tells us) and re-attaches

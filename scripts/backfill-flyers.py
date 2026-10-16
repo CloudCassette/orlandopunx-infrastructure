@@ -101,8 +101,18 @@ def venue_keywords(place_name: str) -> list:
         return ["stardust"]
     if "sister" in name and "house" in name:
         return ["my sisters house"]
+    if "social" in name:
+        return ["the social"]
+    if "beacham" in name:
+        return ["beacham"]
+    if "abbey" in name:
+        return ["the abbey"]
+    if "conduit" in name:
+        return ["conduit"]
     words = [
-        w for w in re.sub(r"[^a-z0-9\s]", " ", name).split() if w
+        w
+        for w in re.sub(r"[^a-z0-9\s]", " ", name).split()
+        if w and w not in {"the", "at", "of"}
     ]
     return words[:2] or [name]
 
