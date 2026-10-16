@@ -49,6 +49,8 @@ temp/
 .env.local
 .env.production
 
+# Approval UI server secrets (lives only on the server, never committed)
+
 # Runtime files
 *.pid
 scripts/event-sync/venv/
