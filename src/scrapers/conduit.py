@@ -183,7 +183,7 @@ def parse_conduit_events_from_html(soup, url, headers, download_images=True):
 
     Returns a list of dicts:
         title, date (YYYY-MM-DD), time (HH:MM), venue, venue_url, url,
-        description, price, age_restriction, source, flyer_url
+        description, price, age_restriction, ticket_url, source, flyer_url
     Deduplicated on (title, date) — the TicketWeb plugin renders the
     event list twice on the homepage.
     """
@@ -237,6 +237,12 @@ def parse_conduit_events_from_html(soup, url, headers, download_images=True):
             age_el = section.find(class_="tw-age-restriction")
             age = age_el.get_text(strip=True) if age_el else ""
 
+            # --- ticket link (Buy Tickets -> ticketweb) ---
+            buy_el = section.find("a", class_="tw-buy-tix-btn")
+            ticket_url = ""
+            if buy_el and buy_el.get("href"):
+                ticket_url = urljoin(url, buy_el["href"].strip())
+
             href = a.get("href") if a is not None else None
             event_url = urljoin(url, href) if href else url
 
@@ -256,6 +262,7 @@ def parse_conduit_events_from_html(soup, url, headers, download_images=True):
                 "description": build_description(age, price),
                 "price": price,
                 "age_restriction": age,
+                "ticket_url": ticket_url,
                 "source": "conduit",
                 "flyer_url": extract_event_flyer(section, url),
             })

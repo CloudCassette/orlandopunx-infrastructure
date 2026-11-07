@@ -12,6 +12,7 @@ Key improvements:
 """
 
 import hashlib
+import html
 import json
 import os
 import re
@@ -47,6 +48,8 @@ class ImprovedEventSync:
         self.db_path = "/var/lib/gancio/gancio.sqlite"
         # Lazily-cached admin OAuth token (see _gancio_bearer_token).
         self._bearer_token = None
+        # Existing events updated with a Buy tickets link (see backfill_ticket_link).
+        self.backfilled_count = 0
 
     def load_all_existing_events(self):
         """Load ALL events with enhanced duplicate detection indexes"""
@@ -66,7 +69,8 @@ class ImprovedEventSync:
                         e.start_datetime, 
                         e.placeId, 
                         e.is_visible,
-                        p.name as place_name
+                        p.name as place_name,
+                        e.description
                     FROM events e
                     LEFT JOIN places p ON e.placeId = p.id
                     ORDER BY e.id DESC
@@ -77,7 +81,7 @@ class ImprovedEventSync:
 
                 print(f"   📁 Found {len(db_events)} total events in database")
 
-                for event_id, title, slug, start_dt, place_id, is_visible, place_name in db_events:
+                for event_id, title, slug, start_dt, place_id, is_visible, place_name, description in db_events:
                     # Store by slug
                     self.existing_events[slug] = {
                         "id": event_id,
@@ -85,7 +89,8 @@ class ImprovedEventSync:
                         "slug": slug,
                         "is_visible": is_visible,
                         "place_name": place_name or "",
-                        "start_datetime": start_dt
+                        "start_datetime": start_dt,
+                        "description": description or "",
                     }
 
                     # Store by base slug (without number suffix)
@@ -100,7 +105,8 @@ class ImprovedEventSync:
                                 "slug": slug,
                                 "is_visible": is_visible,
                                 "place_name": place_name or "",
-                                "start_datetime": start_dt
+                                "start_datetime": start_dt,
+                                "description": description or "",
                             })
 
                     # Create normalized title+venue key for robust matching
@@ -115,7 +121,8 @@ class ImprovedEventSync:
                         "title": title,
                         "slug": slug,
                         "is_visible": is_visible,
-                        "start_datetime": start_dt
+                        "start_datetime": start_dt,
+                        "description": description or "",
                     })
 
                 published_count = sum(1 for e in db_events if e[5] == 1)
@@ -245,15 +252,23 @@ class ImprovedEventSync:
                 print(f"   ⏭️ Dropping incomplete Will's Pub event: {title!r}")
                 continue
             flyer_url = ev.get("flyer_url") or ""
+            description = (ev.get("description") or "")[:500]
+            ticket_url = (ev.get("ticket_url") or "").strip()
+            if ticket_url:
+                ticket_line = f'<a href="{html.escape(ticket_url)}">Buy tickets</a>'
+                description = (
+                    f"{description}\n\n{ticket_line}" if description else ticket_line
+                )
             events.append({
                 "title": title,
                 "venue": "Will's Pub",
                 "date": event_date,
                 "time": event_time[:5],
-                "description": (ev.get("description") or "")[:500],
+                "description": description,
                 "tags": ["punk", "live-music"],
                 "place_id": 1,  # Will's Pub venue ID in Gancio
                 "url": ev.get("url", ""),
+                "ticket_url": ticket_url,
                 # Attach the flyer only when the URL is reachable and
                 # really serves an image (flaky CDNs must not block
                 # event creation).
@@ -293,15 +308,23 @@ class ImprovedEventSync:
                 print(f"   ⏭️ Dropping incomplete Conduit event: {title!r}")
                 continue
             flyer_url = ev.get("flyer_url") or ""
+            description = (ev.get("description") or "")[:500]
+            ticket_url = (ev.get("ticket_url") or "").strip()
+            if ticket_url:
+                ticket_line = f'<a href="{html.escape(ticket_url)}">Buy tickets</a>'
+                description = (
+                    f"{description}\n\n{ticket_line}" if description else ticket_line
+                )
             events.append({
                 "title": title,
                 "venue": "Conduit",
                 "date": event_date,
                 "time": event_time[:5],
-                "description": (ev.get("description") or "")[:500],
+                "description": description,
                 "tags": ["punk"],
                 "place_id": 5,  # Conduit venue ID in Gancio
                 "url": ev.get("url", ""),
+                "ticket_url": ticket_url,
                 "image_url": flyer_url
                 if self._valid_flyer_url(flyer_url)
                 else "",
@@ -643,6 +666,133 @@ class ImprovedEventSync:
                 f"{put_response.text[:160]}"
             )
 
+    def _fetch_event_body(self, event_id) -> Optional[Dict]:
+        """GET one Gancio event -> full JSON body, or None on failure."""
+        try:
+            response = self.session.get(
+                f"{self.gancio_base_url}/api/event/{event_id}", timeout=30
+            )
+        except Exception as exc:
+            print(f"   ⚠️ error fetching event {event_id}: {exc}")
+            return None
+        if response.status_code != 200:
+            print(
+                f"   ⚠️ could not fetch event {event_id} "
+                f"(HTTP {response.status_code}) — ticket-link backfill skipped"
+            )
+            return None
+        try:
+            body = response.json()
+        except ValueError:
+            return None
+        return body if isinstance(body, dict) else None
+
+    def backfill_ticket_link(self, event: Dict, existing: Dict) -> None:
+        """Append a Buy tickets link to an existing Gancio event that lacks one.
+
+        Additive only: the existing description is preserved and the link
+        line is appended when the scraped event carries a ``ticket_url`` and
+        the existing event's description has no ticket link yet. Never
+        removes or rewrites existing text, never touches image/venue/tags
+        beyond what Gancio's PUT rewrites unconditionally (place_name and
+        tags are echoed back from the event's own body).
+
+        Called for duplicate events, so this is what retro-fits ticket
+        links onto shows that were pushed before the scrapers extracted
+        them.
+        """
+        ticket_url = (event.get("ticket_url") or "").strip()
+        if not ticket_url:
+            return
+        event_id = existing.get("id")
+        if event_id is None:
+            return
+
+        # Dedup can also match a same-title show on a different date
+        # (fuzzy venue+title match); only backfill the true same-day event.
+        start_dt = existing.get("start_datetime") or ""
+        if start_dt and not start_dt.split("T")[0] == event.get("date"):
+            return
+
+        def _has_link(desc: str) -> bool:
+            desc = desc or ""
+            return (
+                "buy tickets" in desc.lower()
+                or html.unescape(ticket_url) in html.unescape(desc)
+            )
+
+        # Cheap pre-check against the description loaded from the DB.
+        if _has_link(existing.get("description")):
+            return
+
+        body = self._fetch_event_body(event_id)
+        if body is None:
+            return
+        if _has_link(body.get("description")):
+            return  # already updated by a previous run
+
+        place = body.get("place") or {}
+        place_name = (place.get("name") or existing.get("place_name") or "").strip()
+        if not place_name:
+            print(
+                f"   ⚠️ ticket-link backfill skipped for id={event_id}: "
+                "no place_name (PUT would repoint venue)"
+            )
+            return
+        tag_names = [
+            t.get("tag") if isinstance(t, dict) else str(t)
+            for t in (body.get("tags") or [])
+        ]
+        desc = (body.get("description") or "").strip()
+        ticket_line = f'<a href="{html.escape(ticket_url)}">Buy tickets</a>'
+        new_desc = f"{desc}\n\n{ticket_line}" if desc else ticket_line
+
+        if os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"}:
+            print(
+                f"   🧪 DRY RUN - would add Buy tickets link to "
+                f"existing event id={event_id} ({body.get('title') or 'unknown'})"
+            )
+            return
+
+        token = self._gancio_bearer_token()
+        if not token:
+            print(
+                f"   ⚠️ ticket-link backfill skipped for id={event_id}: "
+                "set GANCIO_EMAIL/GANCIO_PASSWORD so existing events can be updated"
+            )
+            return
+
+        put_body = {
+            "id": event_id,
+            "description": new_desc,
+            "place_name": place_name,
+            "tags": tag_names,
+        }
+
+        def _put():
+            return self.session.put(
+                f"{self.gancio_base_url}/api/event",
+                json=put_body,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30,
+            )
+
+        put_response = _put()
+        # Token expired mid-run: re-login once and retry the PUT.
+        if put_response.status_code == 401:
+            token = self._gancio_bearer_token(force=True)
+            if token:
+                put_response = _put()
+
+        if put_response.status_code < 300:
+            self.backfilled_count += 1
+            print(f"   🔗 added Buy tickets link to existing event id={event_id}")
+        else:
+            print(
+                f"   ⚠️ ticket-link backfill failed ({put_response.status_code}): "
+                f"{put_response.text[:160]}"
+            )
+
     def submit_event(self, event: Dict) -> bool:
         """Submit an event to Gancio only if it's not a duplicate"""
         
@@ -654,6 +804,9 @@ class ImprovedEventSync:
             if existing:
                 status = "published" if existing.get('is_visible') == 1 else "unconfirmed"
                 print(f"      Already exists as {status} event ID: {existing.get('id')}")
+                # Retro-fit the Buy tickets link onto shows pushed before the
+                # scrapers extracted ticket URLs (additive; skips when present).
+                self.backfill_ticket_link(event, existing)
             return False
 
         # DRY RUN check
@@ -833,6 +986,7 @@ class ImprovedEventSync:
         print("📊 Sync Summary:")
         print(f"   ✅ Submitted: {submitted} new events")
         print(f"   ⏭️  Skipped: {skipped} duplicates")
+        print(f"   🔗 Existing events updated with ticket links: {self.backfilled_count}")
         print(f"   ❌ Failed: {failed} events")
         print(f"   📚 Total existing: {len(self.existing_events)} events in database")
         

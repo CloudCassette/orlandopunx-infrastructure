@@ -180,7 +180,7 @@ def parse_willspub_events_from_html(soup, base_url=None):
 
     Returns a list of dicts (canonical shape):
         title, venue, date, time, description, url, flyer_url,
-        price, age_restriction
+        price, age_restriction, ticket_url
     Events without a parseable concrete date are logged and skipped.
     """
     base_url = base_url or WILLSPUB_URL
@@ -249,6 +249,12 @@ def parse_willspub_events_from_html(soup, base_url=None):
             age_el = section.find(class_="tw-age-restriction")
             age = age_el.get_text(strip=True) if age_el else ""
 
+            # --- ticket link (Buy Tickets -> ticketweb) ---
+            buy_el = section.find("a", class_="tw-buy-tix-btn")
+            ticket_url = ""
+            if buy_el and buy_el.get("href"):
+                ticket_url = urljoin(base_url, buy_el["href"].strip())
+
             events.append({
                 "title": title,
                 "venue": "Will's Pub",
@@ -259,6 +265,7 @@ def parse_willspub_events_from_html(soup, base_url=None):
                 "flyer_url": extract_event_flyer(section, base_url),
                 "price": price,
                 "age_restriction": age,
+                "ticket_url": ticket_url,
                 "source": "willspub",
             })
             print(f"   ✅ {title} - {event_date} at {event_time}")
