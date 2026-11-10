@@ -333,6 +333,60 @@ class ImprovedEventSync:
         print(f"   ✅ Found {len(events)} events from Conduit")
         return events
 
+    def fetch_falcon_events(self) -> List[Dict]:
+        """Fetch events from The Falcon via the `src.scrapers.falcon` module.
+
+        The Falcon has no venue site — events come from its Eventbrite
+        organizer page. Selectors live in the scraper module. Guarded
+        import, same style as the other fetchers.
+        """
+        print("🎨 Fetching The Falcon events...")
+        try:
+            from src.scrapers.falcon import scrape_falcon_events
+        except ImportError as e:
+            print(f"   ⚠️ Falcon scraper unavailable: {e}")
+            return []
+
+        try:
+            raw_events = scrape_falcon_events(download_images=False)
+        except Exception as e:
+            print(f"   ❌ Falcon scraper failed: {e}")
+            return []
+
+        events = []
+        for ev in raw_events:
+            title = ev.get("title", "")
+            event_date = ev.get("date", "")
+            event_time = ev.get("time") or "20:00"
+            if not title or not event_date:
+                print(f"   ⏭️ Dropping incomplete Falcon event: {title!r}")
+                continue
+            flyer_url = ev.get("flyer_url") or ""
+            description = (ev.get("description") or "")[:500]
+            ticket_url = (ev.get("ticket_url") or "").strip()
+            if ticket_url:
+                ticket_line = f'<a href="{html.escape(ticket_url)}">Buy tickets</a>'
+                description = (
+                    f"{description}\n\n{ticket_line}" if description else ticket_line
+                )
+            events.append({
+                "title": title,
+                "venue": "The Falcon",
+                "date": event_date,
+                "time": event_time[:5],
+                "description": description,
+                "tags": ["falcon"],
+                "place_id": 7,  # The Falcon venue ID in Gancio
+                "url": ev.get("url", ""),
+                "ticket_url": ticket_url,
+                "image_url": flyer_url
+                if self._valid_flyer_url(flyer_url)
+                else "",
+            })
+
+        print(f"   ✅ Found {len(events)} events from The Falcon")
+        return events
+
     def resolve_place_id(self, name: str) -> Optional[int]:
         """Resolve a Gancio place id for an Orlando Weekly venue name.
 
@@ -963,6 +1017,11 @@ class ImprovedEventSync:
         conduit_events = self.fetch_conduit_events()
         all_events.extend(conduit_events)
         print(f"   🎸 Conduit: {len(conduit_events)} events")
+
+        # Fetch from The Falcon
+        falcon_events = self.fetch_falcon_events()
+        all_events.extend(falcon_events)
+        print(f"   🎨 The Falcon: {len(falcon_events)} events")
         
         print(f"\n📋 Total events to process: {len(all_events)}")
         
